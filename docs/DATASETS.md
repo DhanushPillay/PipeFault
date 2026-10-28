@@ -28,7 +28,7 @@ All three are downloadable without a subscription. Olist requires a free Kaggle 
 
 2025+ adds `cbd_congestion_fee`. Pin the 2024 schema; do not mix years without an explicit schema map.
 
-Verified on 2024-01 (local audit): 2,964,624 rows; 37,102 invalid durations; 60,371 non-positive distances; 37,448 negative fares; 12,018 invalid pickup zones; 28,083 invalid dropoff zones; 31,465 zero-passenger trips; 140,162 nulls each in `passenger_count`, `RatecodeID`, `store_and_fwd_flag`, `congestion_surcharge`, and `Airport_fee`.
+Verified on the full 2024 year (local audit): 41,169,720 rows; 526,866 invalid durations; 776,305 non-positive distances; 731,024 negative fares; 146,201 invalid pickup zones; 370,258 invalid dropoff zones; 401,354 zero-passenger trips; 4,091,232 nulls each in `passenger_count`, `RatecodeID`, `store_and_fwd_flag`, `congestion_surcharge`, and `Airport_fee`; 8 duplicate rows. Pickup timestamps span 2002-12-31 to 2026-06-26, so out-of-range event times are a real defect the simulator must handle.
 
 ### Task and prediction point
 
@@ -242,6 +242,7 @@ Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses. Th
 | 2026-10-28 | Olist license CC BY-NC-SA 4.0 | Kaggle dataset listing |
 | 2026-10-28 | Online Retail II CC BY 4.0, DOI, fields, dates | Verified on the UCI page |
 | 2026-10-28 | TLC 2024-01 local audit | 2,964,624 rows; see metrics above |
+| 2026-10-28 | TLC 2024 full local audit | 41,169,720 rows; 526,866 invalid durations; out-of-range timestamps detected |
 | 2026-10-28 | Online Retail II local audit | 1,067,371 rows; 243,007 missing CustomerID; 67,242 duplicate rows |
 | 2026-10-28 | Bike Sharing CC BY 4.0, DOI, size | Verified on the UCI page |
 

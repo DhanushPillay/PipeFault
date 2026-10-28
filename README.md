@@ -52,7 +52,7 @@ paper/
 
 - Environment is locked to Python 3.12 with `uv.lock`.
 - `pipefault data download`, `data audit`, and `data manifest` work.
-- TLC 2024-01 and Online Retail II audits are verified on real data.
+- TLC 2024-01 and the full 2024 year, plus the Online Retail II audit, are verified on real data.
 - CI runs lint, format, type checks, tests, and a Docker build.
 - Olist download is implemented but has not run because Kaggle credentials are not configured yet.
 
@@ -110,7 +110,7 @@ Twelve weeks plus four weeks of buffer. Week 3 contains a go/no-go pilot on TLC.
 
 ## Data and licenses
 
-- NYC TLC yellow taxi 2024: NYC Terms of Use. Downloaded by script, not committed. Verified 2024-01: 2,964,624 rows.
+- NYC TLC yellow taxi 2024: NYC Terms of Use. Downloaded by script, not committed. Verified full year: 41,169,720 rows, 526,866 invalid durations.
 - Olist Brazilian e-commerce: CC BY-NC-SA 4.0. Non-commercial, share-alike. Requires Kaggle credentials; not committed.
 - UCI Online Retail II: CC BY 4.0, DOI 10.24432/C5CG6D. Downloaded by script. Verified: 1,067,371 rows, 22.8% missing CustomerID.
 
