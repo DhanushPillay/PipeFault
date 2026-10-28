@@ -54,6 +54,7 @@ paper/
 - `pipefault data download`, `data audit`, and `data manifest` work.
 - TLC 2024-01 and the full 2024 year, plus the Online Retail II audit, are verified on real data.
 - CI runs lint, format, type checks, tests, and a Docker build.
+- `docs/litmatrix.md` contains 37 DOI-verified papers plus 5 arXiv-only sources.
 - Olist download is implemented but has not run because Kaggle credentials are not configured yet.
 
 ## Prerequisites
@@ -99,6 +100,7 @@ Later weeks add `make baseline`, `make pilot`, `make experiment`, `make reproduc
 | `docs/DATASETS.md` | Sources, licenses, schemas, tasks, splits, leakage exclusions, alternatives |
 | `docs/PREREGISTRATION.md` | Research questions, hypotheses, falsification criteria, analysis plan |
 | `docs/RESEARCH.md` | Literature landscape, gap, contributions, novelty boundaries |
+| `docs/litmatrix.md` | 37 DOI-verified papers with claim, method, data, metric, and threat |
 | `docs/ARCHITECTURE.md` | Components, data flow, interfaces, drop conditions |
 | `docs/EXPERIMENTS.md` | Defect mechanics, grid, baselines, metrics, statistics |
 | `docs/ROADMAP.md` | 12-week plan, deliverables, success criteria, kill criteria |

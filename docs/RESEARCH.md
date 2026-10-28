@@ -19,13 +19,13 @@ Production ML pipelines fail silently. A join duplicates rows, a dimension arriv
 |---|---|---|
 | Dataset-level DQ to ML performance | Mohammed et al., Information Systems 2025, DOI 10.1016/j.is.2025.102549 | Closed for single defects on static tables |
 | Co-occurring DQ issues | Dapaah & Grabowski, arXiv:2512.17460 (preprint) | Partially open; only software defect prediction |
-| Data leakage | Kapoor & Narayanan, Patterns 2023; ASE 2022, DOI 10.1145/3551349.3556918; PLOS ONE 2026, DOI 10.1371/journal.pone.0340167 | Closed |
+| Data leakage | Kapoor & Narayanan, Patterns 2023, DOI 10.1016/j.patter.2023.100804; Yang et al., ASE 2022, DOI 10.1145/3551349.3556918; Mishra et al., PLOS ONE 2026, DOI 10.1371/journal.pone.0340167 | Closed |
 | Concept drift benchmarks | Wild-Time, NeurIPS 2022; Lukats et al., IJDSA 2024, DOI 10.1007/s41060-024-00620-y | Closed |
-| Feature freshness | RALF, PVLDB 17 (2024); FeSAIL, IJCAI 2023; KDD 2026, DOI 10.1145/3770855.3818354; arXiv:2610.02259 | Closing fast |
+| Feature freshness | RALF, PVLDB 17 (2023), DOI 10.14778/3632093.3632116; FeSAIL, IJCAI 2023, DOI 10.24963/ijcai.2023/261; KDD 2026, DOI 10.1145/3770855.3818354; arXiv:2610.02259 | Closing fast |
 | Lakehouse compaction | AutoComp, SIGMOD Companion 2025; arXiv:2608.08639 | Closed, with a near-negative result |
 | Carbon-aware scheduling | EuroSys 2024, DOI 10.1145/3627703.3650079; SIGCOMM 2025; LinTS, IEEE CLOUD 2025 | Closed, with a negative result |
 | Cluster failure prediction | FiCloud 2023; Computing 2026, DOI 10.1007/s00607-026-01718-w | Closed and compute-heavy |
-| Time-series anomaly detection | Wu & Keogh, IEEE TKDE 2023; Baldán et al., Expert Systems 2025 | Closed |
+| Time-series anomaly detection | Wu & Keogh, IEEE TKDE 2023, DOI 10.1109/TKDE.2021.3112126; Baldán et al., Expert Systems 2025 | Closed |
 | Backfill and data revisions | Back2Future, ICLR 2022, arXiv:2106.04420 | Open but narrow |
 
 ## 4. The gap
@@ -82,4 +82,4 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 - Prefer peer-reviewed sources. Mark preprints explicitly.
 - Record DOI or URL for every citation.
 - Do not quote a number from an abstract without checking the full text.
-- Keep a literature matrix with columns: claim, method, dataset, metric, limitation, threat to this project.
+- Keep a literature matrix with columns: claim, method, dataset, metric, limitation, threat to this project. The verified matrix is `docs/litmatrix.md`; update it when a source is added or corrected.
