@@ -1,0 +1,173 @@
+from __future__ import annotations
+
+from enum import StrEnum
+from pathlib import Path
+from typing import Annotated, Any
+
+import typer
+from rich.console import Console
+from rich.table import Table
+
+from pipefault.config import get_settings
+from pipefault.data.audit import audit_datasets
+from pipefault.data.download import (
+    TLC_MONTHS,
+    download_olist,
+    download_retail,
+    download_tlc,
+    olist_credentials_present,
+    raw_files,
+)
+from pipefault.data.manifest import verify_manifest, write_manifest
+from pipefault.logging import configure_logging
+
+app = typer.Typer(no_args_is_help=True, help="Fault-injection benchmark for streaming ML.")
+data_app = typer.Typer(no_args_is_help=True, help="Download, audit, and verify datasets.")
+app.add_typer(data_app, name="data")
+console = Console()
+
+
+class Dataset(StrEnum):
+    all = "all"
+    tlc = "tlc"
+    olist = "olist"
+    retail = "retail"
+
+
+@app.callback()
+def main(
+    log_json: Annotated[bool, typer.Option("--log-json", help="Emit JSON logs.")] = False,
+) -> None:
+    configure_logging(json=log_json)
+
+
+@data_app.command("download")
+def download(
+    dataset: Annotated[
+        Dataset, typer.Option("--dataset", "-d", help="Dataset to download.")
+    ] = Dataset.all,
+    force: Annotated[bool, typer.Option("--force", help="Redownload existing files.")] = False,
+    month: Annotated[
+        list[str] | None,
+        typer.Option("--month", help="TLC month(s), e.g. 01. Repeatable. Default: all 12."),
+    ] = None,
+) -> None:
+    """Download raw data and write the SHA-256 manifest."""
+    settings = get_settings()
+    if dataset in (Dataset.all, Dataset.olist) and not olist_credentials_present():
+        console.print(
+            "[red]Kaggle credentials not found.[/red] Create "
+            "[bold]~/.kaggle/kaggle.json[/bold] or set KAGGLE_USERNAME and KAGGLE_KEY."
+        )
+        raise typer.Exit(code=1)
+
+    files: list[Path] = []
+    try:
+        if dataset in (Dataset.all, Dataset.tlc):
+            files.extend(
+                download_tlc(
+                    settings.raw_dir,
+                    months=month or TLC_MONTHS,
+                    force=force,
+                )
+            )
+        if dataset in (Dataset.all, Dataset.retail):
+            files.extend(download_retail(settings.raw_dir, force=force))
+        if dataset in (Dataset.all, Dataset.olist):
+            files.extend(download_olist(settings.raw_dir, force=force))
+    except RuntimeError as exc:
+        console.print(f"[red]Download failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    collected = sorted(set(files) | set(raw_files(settings.raw_dir)))
+    write_manifest(collected, settings.manifest_path, settings.data_dir)
+    console.print(f"Wrote {len(collected)} files under [bold]{settings.raw_dir}[/bold]")
+    console.print(f"Manifest: [bold]{settings.manifest_path}[/bold]")
+
+
+@data_app.command("audit")
+def audit(
+    dataset: Annotated[
+        Dataset, typer.Option("--dataset", "-d", help="Dataset to audit.")
+    ] = Dataset.all,
+) -> None:
+    """Measure natural defects in the downloaded data."""
+    settings = get_settings()
+    names = ["tlc", "olist", "retail"] if dataset is Dataset.all else [dataset.value]
+    results = audit_datasets(names, settings)
+    _print_audit(results)
+    console.print(f"JSON: [bold]{settings.audit_dir}[/bold]")
+
+
+@data_app.command("manifest")
+def manifest(
+    verify: Annotated[bool, typer.Option("--verify", help="Verify existing files.")] = False,
+) -> None:
+    """Write or verify the SHA-256 manifest."""
+    settings = get_settings()
+    if verify:
+        if not settings.manifest_path.exists():
+            console.print(f"[red]No manifest at {settings.manifest_path}[/red]")
+            raise typer.Exit(code=1)
+        bad = verify_manifest(settings.manifest_path, settings.data_dir)
+        if bad:
+            console.print("[red]Manifest verification failed:[/red]")
+            for name in bad:
+                console.print(f"  {name}")
+            raise typer.Exit(code=1)
+        console.print("[green]Manifest verified.[/green]")
+        return
+
+    files = raw_files(settings.raw_dir)
+    write_manifest(files, settings.manifest_path, settings.data_dir)
+    console.print(f"Wrote manifest with {len(files)} files.")
+
+
+def _rows_for(name: str, result: dict[str, Any]) -> object:
+    if name == "olist":
+        tables = result.get("tables", {})
+        orders = tables.get("olist_orders_dataset", {})
+        return orders.get("rows", "-")
+    return result.get("rows", "-")
+
+
+def _notes_for(name: str, result: dict[str, Any]) -> str:
+    if result.get("status") != "ok":
+        return str(result.get("hint", "missing"))
+    if name == "tlc":
+        return (
+            f"duplicates={result.get('duplicate_rows', '-')}, "
+            f"invalid_duration={result.get('invalid_duration', '-')}"
+        )
+    if name == "olist":
+        reviews = result.get("reviews", {})
+        coverage = result.get("coverage", {})
+        return f"reviews={reviews.get('score_distribution', '-')}, coverage={coverage}"
+    if name == "retail":
+        return (
+            f"missing_customer_id={result.get('missing_customer_id', '-')}, "
+            f"cancellations={result.get('cancellations', '-')}"
+        )
+    return ""
+
+
+def _print_audit(results: dict[str, dict[str, Any]]) -> None:
+    table = Table(title="Natural-defect audit")
+    table.add_column("Dataset")
+    table.add_column("Status")
+    table.add_column("Rows", justify="right")
+    table.add_column("Notes")
+    for name, result in results.items():
+        status = str(result.get("status", "?"))
+        style = "green" if status == "ok" else "yellow"
+        table.add_row(
+            name,
+            f"[{style}]{status}[/{style}]",
+            str(_rows_for(name, result)),
+            _notes_for(name, result),
+        )
+    console.print(table)
+
+
+if __name__ == "__main__":
+    app()
