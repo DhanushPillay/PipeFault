@@ -2,7 +2,7 @@
 
 A reproducible fault-injection benchmark for operator-level data defects in streaming ML pipelines, on three real public datasets, plus a label-free early-warning evaluation.
 
-**Status:** week 0 scaffold. TLC and Online Retail II download and audit paths are verified on real data; Olist is implemented but pending Kaggle credentials.
+**Status:** week 1 baseline. The clean TLC ETA reference is implemented and verified on the full 2024 data. Olist is implemented but pending Kaggle credentials.
 
 ## The problem
 
@@ -53,6 +53,7 @@ paper/
 - Environment is locked to Python 3.12 with `uv.lock`.
 - `pipefault data download`, `data audit`, and `data manifest` work.
 - TLC 2024-01 and the full 2024 year, plus the Online Retail II audit, are verified on real data.
+- `pipefault baseline` trains and evaluates the clean TLC ETA reference with MLflow tracking.
 - CI runs lint, format, type checks, tests, and a Docker build.
 - `docs/litmatrix.md` contains 37 DOI-verified papers plus 5 arXiv-only sources.
 - Olist download is implemented but has not run because Kaggle credentials are not configured yet.
@@ -73,6 +74,7 @@ Windows PowerShell:
 uv run pipefault data download --dataset tlc --month 01
 uv run pipefault data download --dataset retail
 uv run pipefault data audit
+uv run pipefault baseline
 ```
 
 Linux/macOS:
@@ -82,6 +84,7 @@ make install
 uv run pipefault data download --dataset tlc --month 01
 uv run pipefault data download --dataset retail
 uv run pipefault data audit
+uv run pipefault baseline
 ```
 
 Download the full TLC year and Olist once credentials are configured:
@@ -91,7 +94,24 @@ uv run pipefault data download
 uv run pipefault data manifest --verify
 ```
 
-Later weeks add `make baseline`, `make pilot`, `make experiment`, `make reproduce`, and `make demo`.
+Planned next: `make pilot`, `make experiment`, `make reproduce`, and `make demo`.
+
+## Clean TLC baseline
+
+The seed-42 reference uses 500k train, 150k validation, and 150k test rows, selected by stable hash from 39,180,316 clean rows. Splits are by month: January-June train, July-September validation, October-December test, with the last day of each earlier split embargoed. All features are known at pickup time.
+
+| Split | Model | RMSE | MAE | R² |
+|---|---|---:|---:|---:|
+| validation | global median | 14.605 | 9.144 | -0.112 |
+| validation | zone median | 11.765 | 7.704 | 0.279 |
+| validation | LightGBM | 6.743 | 4.335 | 0.763 |
+| test | global median | 15.043 | 9.458 | -0.134 |
+| test | zone median | 12.563 | 8.228 | 0.209 |
+| test | LightGBM | 7.201 | 4.613 | 0.740 |
+
+Best iteration was 522 under a 2,000-round cap; training took about 25 seconds on 8 threads. Across seeds 42-44, test RMSE is 7.19 ± 0.01 and validation RMSE is 6.80 ± 0.05 (mean ± sample SD). These are the clean-reference numbers against which defect conditions will be measured.
+
+MLflow stores runs in `mlflow.db` and model artifacts in `mlruns/`. Per-run metrics and the model are also written to `artifacts/baseline/tlc.json` and `artifacts/baseline/tlc_model.txt`.
 
 ## Documentation
 

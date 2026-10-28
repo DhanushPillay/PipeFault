@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path("data")
+    artifacts_dir: Path = Path("artifacts")
+    mlflow_db: Path = Path("mlflow.db")
     seed: int = 42
     log_json: bool = False
 

@@ -10,7 +10,9 @@ htmlcov/
 .kaggle/
 data/raw/
 data/audit/
+artifacts/
 mlruns/
+mlflow.db*
 *.egg-info/
 dist/
 build/

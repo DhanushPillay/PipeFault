@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: install data audit lint format typecheck test ci docker-build clean help
+.PHONY: install data audit baseline lint format typecheck test ci docker-build clean help
 
 install:
 	uv sync --all-extras
@@ -10,6 +10,9 @@ data:
 
 audit:
 	uv run pipefault data audit
+
+baseline:
+	uv run pipefault baseline
 
 lint:
 	uv run ruff check .
@@ -32,7 +35,7 @@ docker-build:
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage
-	rm -rf data/audit mlruns
+	rm -rf data/audit artifacts mlruns mlflow.db*
 
 help:
-	@echo "make install | data | audit | lint | format | typecheck | test | ci | docker-build | clean"
+	@echo "make install | data | audit | baseline | lint | format | typecheck | test | ci | docker-build | clean"

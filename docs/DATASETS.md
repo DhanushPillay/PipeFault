@@ -50,7 +50,7 @@ Excluded because they are post-pickup or label-derived:
 
 ### Cleaning
 
-- Pickup and dropoff inside 2024. Drop rows outside the month being processed.
+- Pickup and dropoff inside 2024. Drop rows whose pickup or dropoff timestamp falls outside the file's month, so monthly partitions cannot leak across splits.
 - Duration between 1 and 180 minutes. Drop negative and zero durations.
 - `trip_distance > 0`.
 - `fare_amount >= 0`, `total_amount >= 0`.
@@ -72,7 +72,12 @@ Computed with a one-day lag from prior trips only. The as-of join uses the versi
 - Validation: Jul–Sep 2024, 150k trips.
 - Test: Oct–Dec 2024, 150k trips.
 - 1-day embargo between splits.
-- Sample by deterministic hash of a stable trip key within each month, not by random row order. Keep the monthly distribution.
+- Sample by deterministic hash of a stable trip key, not by random row order. Keep the monthly distribution.
+- Cap each monthly partition before concatenation to bound memory, then enforce the exact split size with a deterministic hash sample.
+
+### Clean reference result
+
+Seed 42, 500k/150k/150k rows, LightGBM: validation RMSE 6.743, MAE 4.335, R2 0.763; test RMSE 7.201, MAE 4.613, R2 0.740. The test RMSE across seeds 42-44 is 7.19 +/- 0.01 (mean +/- sample SD). These are the clean-reference numbers for defect comparisons.
 
 ### Natural defects to audit
 
