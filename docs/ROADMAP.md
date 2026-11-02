@@ -68,3 +68,25 @@ Weeks 13–16 are not free time. Use them for:
 4. A public demo deployment on a free tier with aggregated data only.
 
 If everything finishes early, stop. Do not add scope to look impressive.
+
+## 7. Revised priority rule
+
+The roadmap is evidence-first. Weeks 2-7 are the core research program; weeks
+8-12 are validation, packaging, and publication support. A later technology
+milestone cannot compensate for a missing experiment or an unverified claim.
+
+```mermaid
+flowchart LR
+	A[Baseline] --> B[Four-defect pilot]
+	B --> C{Go / no-go}
+	C -->|No-go| D[Negative-result paper or re-scope]
+	C -->|Go| E[Full defects]
+	E --> F[Cross-dataset checks]
+	F --> G[Early warning]
+	G --> H[Optional Spark/demo]
+	H --> I[Paper and artifact]
+```
+
+The first release is complete when the TLC pilot is reproducible, statistically
+reported, and interpretable on the local machine. The dashboard, API, Redpanda,
+MLP, and full experiment grid remain optional until that condition is met.
