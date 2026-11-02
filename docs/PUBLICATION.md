@@ -78,6 +78,39 @@ Do not write a claim until the corresponding evidence exists.
 - [ ] H1 supported by dose-response across at least two datasets and three seeds.
 - [ ] Silent defects shown to evade PSI/KS at a stated threshold and recall.
 - [ ] H2 supported by additive RERI with 95% CI, or reported as a null.
+
+## 6. Evidence-first paper boundary
+
+The paper should make a modest claim that the experiments can support:
+
+> Under controlled real-record treatments, operator-level defects can produce
+> different model degradation and monitoring signatures, and their detectability
+> depends on defect type, severity, dataset, and the time at which labels arrive.
+
+The paper should not claim universal defect coverage, production readiness, or
+that observability replaces labels. The minimum evidence package is a TLC pilot
+with four defects, paired clean controls, three seeds, frozen thresholds,
+confidence intervals, and false-alarm and lead-time results. Olist, Retail,
+Spark validation, and the demo strengthen the artifact but are not substitutes
+for this evidence.
+
+```mermaid
+flowchart TD
+	A[Research question] --> B[Pre-registered mechanism]
+	B --> C[Paired controlled run]
+	C --> D[Metric and confidence interval]
+	D --> E[Claim in paper]
+	E --> F[Limitation and threat]
+```
+
+## 7. Hardware and reproducibility statement
+
+The primary study is designed to run on a single workstation with 16 GB RAM.
+The expected bottlenecks are wall-clock time and disk space, not GPU memory.
+Monthly/chunked processing and one or two workers are the default. The RTX 4060
+is optional because CPU LightGBM and linear models are sufficient for the first
+paper. Any cloud, distributed engine, or GPU result is an extension and must be
+reported separately from the local reference results.
 - [ ] H3 supported by MAE reduction on at least one classification dataset and lead time at a fixed false-alarm rate.
 - [ ] H4 supported by a mixed-effects model, or dropped.
 - [ ] Ablations show which signal families matter.
