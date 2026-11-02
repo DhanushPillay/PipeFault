@@ -24,3 +24,21 @@ measurement study.
 - The artifact demonstrates pipeline engineering, testing, and packaging, but
   not cluster operations or managed-service administration.
 - A cloud deployment remains optional and is not part of the paper's claims.
+
+## 5. Scientific-first amendment
+
+The project prioritizes valid measurements over additional technologies. The
+first complete result must be runnable with the local Python, Polars or DuckDB,
+CPU LightGBM, deterministic configs, and the existing test suite. Spark may be
+used to validate a small event-time subset, but it is not part of the primary
+execution path.
+
+The RTX 4060 is optional and 16 GB of RAM is the baseline target. Monthly
+partitioning, compact feature caches, and one or two workers are preferred over
+distributed execution. FastAPI, Streamlit, Redpanda, MLPs, and the full grid
+are deferred until the TLC pilot has produced interpretable scientific results.
+
+This amendment is satisfied only when the project can report a clean baseline,
+four tested defect mechanisms, paired controls, repeated seeds, confidence
+intervals, and alarm-quality metrics. A larger stack without those results is
+not progress toward the paper.
