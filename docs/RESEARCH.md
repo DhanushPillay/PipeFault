@@ -83,3 +83,38 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 - Record DOI or URL for every citation.
 - Do not quote a number from an abstract without checking the full text.
 - Keep a literature matrix with columns: claim, method, dataset, metric, limitation, threat to this project. The verified matrix is `docs/litmatrix.md`; update it when a source is added or corrected.
+
+## 10. Narrow contribution claim
+
+PipeFault should not claim that data quality, fault injection, or ML
+observability is new. Existing work already covers static data-quality impact,
+fault injection, production ML observability, feature freshness, dataset-shift
+detection, and label-free accuracy estimation.
+
+The defensible claim is narrower: PipeFault provides a reproducible measurement
+study that connects operator-level defects, event-time semantics, compounding
+treatments, delayed labels, and early-warning evaluation across real tabular
+pipelines. The contribution is the controlled comparison and evidence, not a
+new prediction algorithm.
+
+```mermaid
+flowchart LR
+	A[Operator defect] --> B[Event-time or table effect]
+	B --> C[Feature and row changes]
+	C --> D[Model degradation]
+	B --> E[Observable signals]
+	E --> F[Early warning]
+	D --> G[Lead time and false alarms]
+	F --> G
+```
+
+## 11. Research-first decision rule
+
+Every proposed component must answer one of these questions:
+
+1. Does it make a defect mechanism more realistic?
+2. Does it improve causal measurement or reproducibility?
+3. Does it test detection, diagnosis, or generalization?
+
+If it answers none of them, defer it. Spark, Redpanda, FastAPI, Streamlit,
+and neural models are optional extensions, not evidence of contribution.
