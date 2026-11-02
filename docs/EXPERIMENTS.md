@@ -146,3 +146,45 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 - **Internal:** seeds and splits are fixed; injector determinism is tested.
 - **Conclusion:** multiple comparisons are corrected; all conditions are reported, including nulls.
 - **Simulator fidelity:** validated against Spark on a subset; divergence is reported, not hidden.
+
+## 13. Minimum publishable experiment
+
+The first complete study is intentionally smaller than the full grid:
+
+- Dataset: TLC only.
+- Defects: D1 join fanout, D2 referential loss, D3 as-of join bug, and D4
+	watermark drop.
+- Severity: 1%, 5%, 10%, 25%, and 50%, unless natural defect rates require a
+	documented adjustment.
+- Models: LightGBM and one simple linear or logistic baseline as applicable.
+- Seeds: at least 3.
+- Controls: clean paired runs, ordinary seasonal changes, and at least one
+	defect that should not materially change the target metric.
+- Outputs: degradation curves, confidence intervals, detection delay, lead
+	time, false-alarm rate, and exact affected-unit counts.
+
+Do not begin the full 3,330-run grid until this pilot passes the determinism,
+leakage, and interpretability gates. A null result is publishable when the
+design can show that the defect was injected correctly and the confidence
+interval excludes a practically meaningful effect.
+
+```mermaid
+flowchart TD
+		A[Clean baseline] --> B[Freeze configs and thresholds]
+		B --> C[Inject one defect]
+		C --> D[Run same rows and seed]
+		D --> E[Measure model degradation]
+		D --> F[Extract monitoring signals]
+		E --> G[Compare to clean run]
+		F --> H[Measure alarm quality]
+		G --> I[Report effect and CI]
+		H --> I
+```
+
+## 14. Negative controls and fairness of comparison
+
+The experiment must include clean batches with legitimate seasonal or volume
+changes. These are negative controls for false alarms. Defect and clean runs
+must share the same sampled records, split, model configuration, and seed; only
+the declared treatment may differ. Thresholds are chosen on clean validation
+runs and frozen before test evaluation.
