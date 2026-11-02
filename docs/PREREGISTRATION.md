@@ -118,6 +118,33 @@ The additive RERI is primary because relative degradation is a ratio, not a prob
 
 ## 10. Deviations log
 
+## 11. Scientific-first execution policy
+
+The order of work is fixed by evidential value:
+
+1. Verify the clean baseline and leakage checks.
+2. Implement and test four defects: D1, D2, D3, and D4.
+3. Complete the TLC pilot with paired clean controls.
+4. Freeze thresholds and evaluate early-warning metrics.
+5. Add D5-D8 only after the pilot is interpretable.
+6. Add Olist and Retail for cross-domain validation.
+7. Add Spark validation, a dashboard, or additional models only when they
+   support an explicit result.
+
+The project will not use additional infrastructure as a proxy for scientific
+progress. Every extension must identify its research question, expected
+observable output, and a kill criterion before implementation.
+
+```mermaid
+flowchart TD
+	A[Clean baseline and leakage checks] --> B[Four-defect TLC pilot]
+	B --> C{Interpretable effect?}
+	C -->|No| D[Report null or re-scope]
+	C -->|Yes| E[Early-warning evaluation]
+	E --> F[Cross-dataset validation]
+	F --> G[Optional engine and artifact validation]
+```
+
 | Date | Deviation | Reason | Impact on hypotheses |
 |---|---|---|---|
 | | | | |
