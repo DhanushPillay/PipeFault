@@ -203,3 +203,32 @@ No cloud required. If a public demo is needed, deploy the dashboard to a free-ti
 ## 10. Architecture decision records
 
 Record significant decisions in `docs/adr/` when they change the experiment plan. Examples: dropping Spark from the core path, changing the severity scale, replacing dbt with plain SQL.
+
+## 11. Scientific-first implementation boundary
+
+The core path is deliberately local and small:
+
+```mermaid
+flowchart LR
+  A[Real data] --> B[Audit and hash]
+  B --> C[Clean time split]
+  C --> D[Clean baseline]
+  C --> E[Controlled defect]
+  E --> F[Same features and model]
+  D --> G[Paired comparison]
+  F --> G
+  G --> H[Effect, CI, lead time, false alarms]
+```
+
+Required for the first paper: Python, Polars or DuckDB, CPU LightGBM, local
+artifacts, deterministic configs, and tests. Optional technologies must earn
+their place by answering a research question. Spark is useful for validating a
+small event-time subset; it is not required for the primary experiment.
+
+On a 16 GB RAM machine, process monthly partitions and keep parallelism at one
+or two workers. Do not load the full raw year and all experiment conditions into
+memory at once. The RTX 4060 is optional because the planned tabular models are
+CPU workloads; GPU training is deferred unless a measured experiment needs it.
+
+The API, dashboard, Redpanda profile, MLP, and full-grid runner are downstream
+artifact features. They must not delay the first complete result.
