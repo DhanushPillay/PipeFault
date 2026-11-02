@@ -145,3 +145,23 @@ Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses.
 ## Citation
 
 Placeholder until the artifact DOI is assigned.
+
+## Scientific-first scope
+
+The primary deliverable is evidence, not a large technology stack. The first
+publishable result is a controlled TLC pilot with four defects, clean paired
+controls, at least three seeds, and frozen monitoring baselines. The remaining
+defects, datasets, and infrastructure are extensions only after this pilot
+produces interpretable results.
+
+The study must report both positive and null results. A defect counts as useful
+only when its mechanism is explicit, its affected units are measured exactly,
+and its effect can be compared with the clean run. Monitoring is evaluated by
+lead time, detection delay, false alarms, precision, recall, and cost, not by a
+single model-quality number.
+
+The baseline workload is designed for one local machine. Polars, DuckDB, and
+CPU LightGBM are sufficient for the first study. Process TLC by monthly
+partition, keep one or two workers on a 16 GB machine, and defer GPU models,
+Spark, Redpanda, the API, and the dashboard unless they answer a specific
+research question or support reproducibility.
