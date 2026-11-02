@@ -238,6 +238,25 @@ Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses. Th
 
 ## 7. Verification log
 
+## 8. Dataset strategy for the first paper
+
+TLC is the primary dataset because it combines a large event-time table, a
+time-varying zone dimension, a clear prediction point, and enough rows for
+stable repeated experiments. Olist and Retail are cross-domain validation, not
+prerequisites for the first pilot.
+
+The local execution strategy is:
+
+1. Read one TLC month at a time.
+2. Apply the frozen cleaning and timestamp rules before sampling.
+3. Cache compact feature tables rather than repeatedly reading raw Parquet.
+4. Run one or two conditions at a time on a 16 GB machine.
+5. Record raw rows, clean rows, sampled rows, and dropped rows for every run.
+
+The minimum paper can use TLC plus one secondary dataset if time permits. A
+third dataset strengthens external validity but does not compensate for weak
+defect definitions, missing controls, or poor statistical reporting.
+
 | Date | Check | Result |
 |---|---|---|
 | 2026-10-28 | TLC 2024 monthly Parquet URLs | Verified on the NYC TLC page |
