@@ -77,8 +77,11 @@ Do not write a claim until the corresponding evidence exists.
 
 - [ ] H1 supported by dose-response across at least two datasets and three seeds.
 - [ ] Silent defects shown to evade PSI/KS at a stated threshold and recall.
-- [ ] H2 supported by additive RERI with 95% CI, or reported as a null.
-
+- [ ] H2 supported by additive RERI with 95% CI, plus multi-way decomposition for triples, or reported as a null.
+- [ ] H3 supported by MAE reduction on at least one classification dataset and lead time at a fixed false-alarm rate.
+- [ ] Early-warning panel (ATC/AC/DoC/MCD + PSI/KS) ablated by signal family.
+- [ ] Metadata-borne track reported separately if implemented.
+- [ ] Simulator validated against Spark, or the streaming claim removed.
 ## 6. Evidence-first paper boundary
 
 The paper should make a modest claim that the experiments can support:
