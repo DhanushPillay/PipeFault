@@ -123,8 +123,9 @@ MLflow stores runs in `mlflow.db` and model artifacts in `mlruns/`. Per-run metr
 | `docs/litmatrix.md` | 37 DOI-verified papers with claim, method, data, metric, and threat |
 | `docs/ARCHITECTURE.md` | Components, data flow, interfaces, drop conditions |
 | `docs/EXPERIMENTS.md` | Defect mechanics, grid, baselines, metrics, statistics |
-| `docs/ROADMAP.md` | 12-week plan, deliverables, success criteria, kill criteria |
-| `docs/PUBLICATION.md` | Venues, paper structure, figures, ethics, submission checklist |
+| `docs/ROADMAP.md` | 12-week plan, deliverables, success criteria, kill criteria, tiers |
+| `docs/REPRODUCIBILITY.md` | Config hashing, seeds, data pins, determinism tests, replay |
+| `docs/SIMULATOR_VALIDATION.md` | Spark row-level agreement gate and downgrade rule || `docs/PUBLICATION.md` | Venues, paper structure, figures, ethics, submission checklist |
 
 ## Timeline
 
