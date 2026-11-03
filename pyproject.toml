@@ -39,6 +39,7 @@ serve = [
 dev = [
   "mypy>=1.14",
   "pre-commit>=4.0",
+  "pip-audit>=2.7",
   "pytest>=8.3",
   "pytest-cov>=6.0",
   "ruff>=0.9",
@@ -86,4 +87,5 @@ markers = [
 source = ["src/pipefault"]
 
 [tool.coverage.report]
+fail_under = 40
 omit = ["src/pipefault/__init__.py"]
