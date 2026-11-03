@@ -1,0 +1,5 @@
+name: D1
+display_name: Volume drop
+severity_levels: [1, 5, 10, 25, 50]
+unit: fraction_of_rows_dropped
+silent: false

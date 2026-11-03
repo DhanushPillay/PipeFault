@@ -1,0 +1,5 @@
+name: tlc
+raw_subdir: tlc
+file_glob: "yellow_tripdata_2024-*.parquet"
+months: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+zone_lookup: taxi_zone_lookup.csv
