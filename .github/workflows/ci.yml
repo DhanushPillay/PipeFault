@@ -4,35 +4,158 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           version: "0.10.6"
           enable-cache: true
-      - name: Install project
-        run: uv sync --frozen --extra dev
-      - name: Lint
-        run: uv run ruff check .
-      - name: Format
-        run: uv run ruff format --check .
-      - name: Type check
-        run: uv run mypy src
-      - name: Test
-        run: uv run pytest
+      - run: uv sync --frozen --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - run: uv run mypy src
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - name: Run tests with coverage
+        run: uv run pytest --cov=pipefault --cov-report=xml --cov-report=term-missing --cov-fail-under=40      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra ml
+      - name: Generate TLC fixture
+        run: uv run python scripts/make_tlc_fixture.py --out tests/fixtures --rows-per-month 200
+      - name: Write manifest
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: uv run pipefault data manifest
+      - name: Audit fixture
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: uv run pipefault data audit --dataset tlc
+      - name: Run baseline on fixture
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: |
+          uv run pipefault baseline --dataset tlc --train-size 200 --val-size 100 --test-size 100 --rounds 50 --no-mlflow
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-baseline
+          path: artifacts/baseline/tlc.json          if-no-files-found: ignore
+
+  reproducibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra ml
+      - name: Generate TLC fixture
+        run: uv run python scripts/make_tlc_fixture.py --out tests/fixtures --rows-per-month 200
+      - name: Write manifest
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: uv run pipefault data manifest
+      - name: Baseline run 1
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: uv run pipefault baseline --seed 42 --train-size 200 --val-size 100 --test-size 100 --rounds 50 --no-mlflow
+      - name: Save run 1 metrics
+        run: cp artifacts/baseline/tlc.json /tmp/run1.json      - name: Baseline run 2
+        env:
+          PIPEFAULT_DATA_DIR: tests/fixtures
+        run: uv run pipefault baseline --seed 42 --train-size 200 --val-size 100 --test-size 100 --rounds 50 --no-mlflow
+      - name: Compare metrics
+        run: |
+          uv run python - <<'PY'
+          import json
+          a = json.load(open("/tmp/run1.json"))
+          b = json.load(open("artifacts/baseline/tlc.json"))          for split in ("validation", "test"):
+              for model in ("global_median", "zone_median", "lightgbm"):
+                  for key in ("rmse", "mae", "r2"):
+                      x = a["metrics"][split][model][key]
+                      y = b["metrics"][split][model][key]
+                      tol = 1e-6 * max(1.0, abs(x))
+                      if abs(x - y) > tol:
+                          raise SystemExit(f"non-deterministic: {split}/{model}/{key}: {x} vs {y}")
+          print("reproducibility: OK")
+          PY
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.6"
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - run: uv run pip-audit
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t pipefault:ci .
       - name: Smoke test image
