@@ -7,11 +7,9 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
-
+RUN uv sync --frozen --no-dev --no-install-project --extra ml --extra serve
 COPY src ./src
-RUN uv sync --frozen --no-dev
-
+RUN uv sync --frozen --no-dev --extra ml --extra serve
 FROM python:3.12-slim
 
 RUN useradd --create-home --uid 10001 app
