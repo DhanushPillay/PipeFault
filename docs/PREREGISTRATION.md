@@ -44,6 +44,10 @@ Severity is the fraction of the relevant unit affected. The unit differs by defe
 | D7 | Partial partition or stale backfill | Partition load | Fraction of partitions replaced with the previous snapshot | Missing or stale data |
 | D8 | Timestamp misalignment | Event-time assignment | Fraction of timestamps offset by 1 to 6 hours | Window and join misalignment |
 
+### Metadata-borne track (optional, post-pilot)
+
+A separate track for defects visible only through freshness, lineage, or provenance metadata, not through payload values (SARC-DQ style). Examples: stale dimension row superseded but not removed, backfill that rewrites history, lineage gap. This track is analyzed separately and does not enter the H1 silent-vs-volume contrast. Add only after the eight-defect pilot is interpretable.
+
 ## 4. Conditions
 
 - **Clean baseline:** 1 condition per dataset and model.
@@ -53,6 +57,10 @@ Severity is the fraction of the relevant unit affected. The unit differs by defe
 - **Total per dataset, model, seed:** 74 conditions.
 
 Pre-selected triples: (D1, D3, D5), (D2, D4, D7), (D1, D6, D8), (D2, D3, D8), (D4, D5, D6). All eight defects appear at least once; D7 appears once because partition defects are the most expensive to inject.
+
+### Tier choice (record before sweep)
+
+Minimum publishable (TLC, Olist; LightGBM, linear/logistic; 3 seeds; 888 runs) is the default. Primary and full tiers are recorded here before the sweep and are not upgraded after results are seen.
 
 ### Grid staircase
 
