@@ -67,6 +67,16 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 | Karlaš, Salimi, Schelter, SIGMOD Companion 2025, DOI 10.1145/3722212.3725636 | Tutorial on data errors across pipeline stages | No controlled benchmark, no lead-time evaluation |
 | Shankar & Parameswaran 2022 | Observability vision | No benchmark |
 
+## 7b. Recent adjacent work to differentiate (2026)
+
+| Work | What it does | Why it is not this project |
+|---|---|---|
+| SUNSET, arXiv:2601.13732 | ROS2 sensor-fusion fault injection with concurrent defects and reproducibility docs | Hardware/sensor focus, no compounding interaction metrics or lead time |
+| SARC-DQ, arXiv:2607.26313 | Metadata-borne (freshness/lineage/provenance) defects | No operator taxonomy or streaming lead-time evaluation |
+| VisAudit, arXiv:2610.02399 | Controlled perturbation + verification QC for benchmarks | Chart-flaw domain, not pipelines |
+| Liang 2026, arXiv:2610.02397 | Seeded, hash-logged defects, SHA-256 pins, prevalence calibrated to field studies | Single-defect focus, no compounding |
+| MARGoS, arXiv:2610.13772 | Config hashing, seed propagation, frozen configs, env fingerprinting | Infrastructure, not a study |
+
 ## 8. Open questions to resolve during the build
 
 - Does the severity definition transfer across defects, or does each defect need its own scale?
