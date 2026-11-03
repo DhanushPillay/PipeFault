@@ -77,11 +77,14 @@ Before the sweep, run the natural-defect audit and record the baseline rate for 
 
 Thresholds for PSI, KS, and static rules are tuned on a validation slice of clean runs and frozen before the test runs. ATC is implemented from `https://github.com/saurabhgarg1996/ATC_code`: choose the threshold on clean validation so the fraction of validation confidences above it equals clean accuracy, then apply that threshold to the target batch. Convert ATC and AC accuracy estimates to relative degradation with `(M_clean - M_hat) / M_clean` so they are comparable with the observed degradation. This conversion is part of the baseline, not a post-hoc adjustment.
 
+- **Early-warning panel (not ATC alone):** ATC + AC (mean max-softmax) + DoC (source-target confidence difference) + MCD (margin-based, top-2). Recalibrate thresholds per window via source replay or conformal quantiles; temperature-scale before thresholding. Report all four plus PSI/KS.
+- **Drift thresholds:** calibrated on a held-out clean stream for a target false-alarm rate (e.g., 1 alert per 100 windows); multi-feature aggregation (max/quantile); require persistence (k consecutive windows) before alarm. Bonferroni/Holm across features.
+
 ## 6. Metrics
 
 - **Relative degradation:** `(M_defect - M_clean) / M_clean`. M is RMSE for TLC regression, and error rate `1 - F1` for Olist and Retail classification. Positive means worse.
 - **Interaction index, primary:** `D_AB - D_A - D_B` (RERI). Positive means super-additive. Report the multiplicative form `D_AB - D_A - D_B - D_A D_B` as a sensitivity check.
-- **Prediction MAE and R2:** predicted versus observed relative degradation on held-out conditions.
+- **Multi-way decomposition:** for triples, report the three-way joint RERI and the pairwise RERIs with the third defect absent (Katsoulis & Bamia 2020). Bootstrap CIs for every RERI; the delta method is unstable near zero.- **Prediction MAE and R2:** predicted versus observed relative degradation on held-out conditions.
 - **Lead time:** number of batches between the first warning and the batch where degradation crosses the damage threshold (10% relative).
 - **False-alarm rate:** false warnings per clean batch at a fixed recall of 0.8.
 - **Detection delay:** batches between injection and first alarm.
