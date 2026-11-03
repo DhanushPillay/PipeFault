@@ -15,7 +15,8 @@
 | Data download | Python script plus manifest | Checksums and license tracking for three datasets | Manual download | Never |
 | Natural-defect audit | Python checks | Calibrates severity against real defects | Manual EDA | Never |
 | Replay | Python generator | Deterministic event-time order | Static CSV | Never |
-| Event-time engine | Custom simulator, about 200 lines | Watermarks, lateness, windows | Spark from day one | Never |
+| Reproducibility | Config hashing, seed propagation, frozen configs, env fingerprint | One-command replay | Manual notes | Never |
+| Simulator validation | Spark row-level agreement gate | Construct validity | Simulator only | If week 8 slips || Event-time engine | Custom simulator, about 200 lines | Watermarks, lateness, windows | Spark from day one | Never |
 | Fault injection | Python package | Config-driven, reversible, testable | Ad-hoc mutations in notebooks | Never |
 | Transformation | dbt-duckdb plus Polars | SQL models, tests, resume value | Plain DuckDB SQL | Behind schedule |
 | Storage | Parquet plus DuckDB | Cheap, portable, SQL-queryable | CSV | Never |
@@ -79,8 +80,9 @@ pipefault/
     coercion.py        # D6
     partition.py       # D7
     timestamp.py       # D8
+    metadata.py        # metadata-borne (stale/superseded, lineage gaps) - post-pilot
     registry.py        # name to injector
-  observe/
+    qc.py              # perturb-then-verify checks on injected defects  observe/
     signals.py         # per-batch signal extraction
     drift.py           # PSI, KS
     confidence.py      # AC, ATC
