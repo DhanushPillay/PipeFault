@@ -19,3 +19,4 @@ build/
 paper/build/
 .DS_Store
 Thumbs.db
+tests/fixtures/
