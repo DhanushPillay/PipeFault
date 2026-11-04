@@ -39,6 +39,7 @@ distributed execution. FastAPI, Streamlit, Redpanda, MLPs, and the full grid
 are deferred until the TLC pilot has produced interpretable scientific results.
 
 This amendment is satisfied only when the project can report a clean baseline,
-four tested defect mechanisms, paired controls, repeated seeds, confidence
-intervals, and alarm-quality metrics. A larger stack without those results is
-not progress toward the paper.
+eight tested defect mechanisms, paired controls, repeated seeds, confidence
+intervals, alarm-quality metrics, and a fitted corruption-space law with one
+transfer test. A larger stack without those results is not progress toward the
+paper.
