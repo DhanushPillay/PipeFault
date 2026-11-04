@@ -1,8 +1,8 @@
 # PipeFault
 
-A reproducible fault-injection benchmark for operator-level data defects in streaming ML pipelines, on three real public datasets, plus a label-free early-warning evaluation.
+A reproducible fault-injection benchmark for operator-level data defects in streaming ML pipelines, on three real public datasets, plus a corruption-space law of damage and detectability.
 
-**Status:** week 1 baseline. The clean TLC ETA reference is implemented and verified on the full 2024 data. Olist is implemented but pending Kaggle credentials.
+**Status:** week 1 baseline. The clean TLC ETA reference is implemented and verified on the full 2024 data. Olist is implemented but pending Kaggle credentials. The research design now includes a corruption-space law; the harness does not compute its components yet.
 
 ## The problem
 
@@ -13,18 +13,19 @@ Production ML pipelines rarely fail loudly. A join fans out, a dimension arrives
 1. An 8-defect taxonomy mapped to real pipeline operators.
 2. A deterministic event-time simulator and a config-driven fault injector.
 3. A measurement study of single and compounding defects on three real public datasets: NYC TLC, Olist, and UCI Online Retail II.
-4. A label-free degradation predictor evaluated against ATC and static thresholds, with lead time and false-alarm rate.
-5. A working demo: FastAPI endpoint, Streamlit dashboard, Docker Compose.
+4. A corruption-space law: every condition is annotated with decision, distribution, and coverage displacement, and a low-dimensional model predicts damage and whether monitors see the defect before labels arrive.
+5. A label-free degradation predictor evaluated against ATC and static thresholds, with lead time and false-alarm rate.
+6. A working demo: FastAPI endpoint, Streamlit dashboard, Docker Compose.
 
 ## What this project is not
 
 - Not a general data-quality tool or a production monitor.
-- Not a new ML algorithm. The contribution is measurement, a harness, and evidence.
+- Not a new ML algorithm. The core contribution is an empirical law plus a measurement study, a harness, and evidence.
 - Not a claim that observability replaces labels. It tests when observability helps and when it does not.
 
 ## Research gap
 
-Existing work measures dataset-level data-quality defects on static tables, and separate work studies feature freshness. We found no controlled study that measures how operator-level defects in a streaming pipeline compound, or whether observability metadata predicts the damage before labels arrive.
+Existing work measures dataset-level data-quality defects on static tables, studies feature freshness, and builds debuggers that explain failures after they happen. We found no controlled study that measures how operator-level defects in a streaming pipeline compound, predicts their damage from a low-dimensional corruption vector, or predicts whether observability metadata sees the defect before labels arrive.
 
 ## Planned repository layout
 
@@ -35,6 +36,7 @@ pipefault/
   inject/       # defect injectors
   simulate/     # deterministic event-time simulator
   observe/      # per-batch signal extraction
+  analyze/      # corruption annotation, damage law, detectability
   predict/      # degradation predictor and baselines
   api/          # FastAPI service
   dashboard/    # Streamlit app
@@ -55,7 +57,8 @@ paper/
 - TLC 2024-01 and the full 2024 year, plus the Online Retail II audit, are verified on real data.
 - `pipefault baseline` trains and evaluates the clean TLC ETA reference with MLflow tracking.
 - CI runs lint, format, type checks, tests, and a Docker build.
-- `docs/litmatrix.md` contains 37 DOI-verified papers plus 5 arXiv-only sources.
+- `docs/litmatrix.md` contains 43 DOI-verified papers plus 5 arXiv-only sources.
+- The research and experiment plans specify the corruption-space law and silence index (`docs/RESEARCH.md`, `docs/PREREGISTRATION.md`, `docs/EXPERIMENTS.md`); these are design only, with no code yet.
 - Olist download is implemented but has not run because Kaggle credentials are not configured yet.
 
 ## Prerequisites
@@ -120,16 +123,17 @@ MLflow stores runs in `mlflow.db` and model artifacts in `mlruns/`. Per-run metr
 | `docs/DATASETS.md` | Sources, licenses, schemas, tasks, splits, leakage exclusions, alternatives |
 | `docs/PREREGISTRATION.md` | Research questions, hypotheses, falsification criteria, analysis plan |
 | `docs/RESEARCH.md` | Literature landscape, gap, contributions, novelty boundaries |
-| `docs/litmatrix.md` | 37 DOI-verified papers with claim, method, data, metric, and threat |
+| `docs/litmatrix.md` | 43 DOI-verified papers with claim, method, data, metric, and threat |
 | `docs/ARCHITECTURE.md` | Components, data flow, interfaces, drop conditions |
-| `docs/EXPERIMENTS.md` | Defect mechanics, grid, baselines, metrics, statistics |
-| `docs/ROADMAP.md` | 12-week plan, deliverables, success criteria, kill criteria, tiers |
+| `docs/EXPERIMENTS.md` | Defect mechanics, corruption-space annotation, grid, baselines, metrics, statistics, law protocol |
+| `docs/ROADMAP.md` | 12-week plan, deliverables, success criteria, kill criteria, tiers, top-tier extension |
 | `docs/REPRODUCIBILITY.md` | Config hashing, seeds, data pins, determinism tests, replay |
-| `docs/SIMULATOR_VALIDATION.md` | Spark row-level agreement gate and downgrade rule || `docs/PUBLICATION.md` | Venues, paper structure, figures, ethics, submission checklist |
+| `docs/SIMULATOR_VALIDATION.md` | Spark row-level agreement gate and downgrade rule |
+| `docs/PUBLICATION.md` | Venues, paper structure, figures, ethics, submission checklist |
 
 ## Timeline
 
-Twelve weeks plus four weeks of buffer. Week 3 contains a go/no-go pilot on TLC. If most defect conditions show less than 2% degradation, stop and re-scope before building the full harness. The other two datasets are wired in week 4.
+Twelve weeks plus four weeks of buffer. Week 3 contains a go/no-go pilot on TLC. If most defect conditions show less than 2% degradation, stop and re-scope before building the full harness. The other two datasets are wired in week 4. The top-tier extension in months 4-9 is conditional on the law passing its gates in week 7; if it fails, the measurement study goes to a workshop or journal venue instead.
 
 ## Data and licenses
 
@@ -150,10 +154,11 @@ Placeholder until the artifact DOI is assigned.
 ## Scientific-first scope
 
 The primary deliverable is evidence, not a large technology stack. The first
-publishable result is a controlled TLC pilot with four defects, clean paired
-controls, at least three seeds, and frozen monitoring baselines. The remaining
-defects, datasets, and infrastructure are extensions only after this pilot
-produces interpretable results.
+gate is a controlled TLC pilot with four defects, clean paired controls, at
+least three seeds, and frozen monitoring baselines. The first publishable
+result extends that pilot to all eight defects and adds a fitted corruption-space
+law with one transfer test. Later datasets, compounding, and infrastructure are
+extensions only after this grid is interpretable.
 
 The study must report both positive and null results. A defect counts as useful
 only when its mechanism is explicit, its affected units are measured exactly,
