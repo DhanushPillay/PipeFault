@@ -36,15 +36,34 @@ Existing work injects errors at the dataset level into static tables, or studies
 2. **Compounding interactions** measured under controlled severity in a streaming setting.
 3. **Lead time**: whether cheap observability metadata predicts damage before labels arrive, evaluated against label-free accuracy estimators.
 
-The gap is a measurement gap, not an algorithm gap. State that plainly in the paper.
+The gap is a measurement gap first. The law is what turns the measurement into a predictive claim.
+
+## 4b. From measurement to a law
+
+A measurement table says defects differ. A law says why, and predicts the next one. The upgrade is a low-dimensional representation of what a defect does to the data and to the model:
+
+- **alpha, decision displacement:** fraction of matched rows present in both the clean and defect runs whose model prediction moves by more than a fixed tolerance. This is the damage the model actually experiences.
+- **beta, distribution displacement:** maximum normalized monitor statistic over features and monitor families, `max min(1, statistic / frozen_threshold)`, using PSI and KS. This is what standard drift monitors can see.
+- **gamma, coverage displacement:** relative change in retained row count, `|N_defect - N_clean| / N_clean`, clipped to one. This is what volume checks can see.
+
+None of the eight defects corrupts labels directly. They corrupt features, rows, or coverage. That is why alpha must be defined on model outputs, not on labels: an earlier label-corruption definition would be zero for every condition in the taxonomy.
+
+Two falsifiable claims follow.
+
+**Damage law.** Relative degradation is a low-dimensional function of the corruption vector, dominated by alpha and gamma, and largely independent of defect identity and dataset. Fit on one domain, predict held-out defects and held-out datasets. The law must beat a per-defect lookup table. If defect identity adds predictive power, the law is incomplete and must say so.
+
+**Detectability law.** Monitors observe beta and gamma, never alpha. Define the silence index `s = alpha / (alpha + beta + gamma)`, with each component scaled to `[0, 1]`. Predict that alarm recall falls and lead time shrinks as `s` rises, with little useful warning for alpha-dominant defects until labels arrive. "Silent" becomes a measurable property of a condition, not a label attached to a defect.
+
+This turns the study from "defects differ" into "here is the low-dimensional reason they differ, and here is what you can and cannot monitor." The law is explanatory: alpha, beta, and gamma are computed from paired clean and corrupted runs with injector ground truth. An operational predictor must estimate them from observability signals, and that gap is an explicit limitation.
 
 ## 5. Contributions
 
-1. An 8-defect taxonomy mapped to pipeline operators, with injection mechanics and expected symptoms.
+1. An 8-defect taxonomy mapped to pipeline operators, with injection mechanics, expected symptoms, and a corruption-space annotation (alpha, beta, gamma) per condition.
 2. A reproducible harness with a deterministic event-time simulator and a config-driven injector.
 3. A measurement study of single and compounding defects across three real domains: transport (TLC), marketplace (Olist), and retail (Online Retail II).
-4. An early-warning evaluation against ATC and static thresholds, reporting MAE, lead time, and false-alarm rate.
-5. An open artifact: code, configs, run results, and a reproducibility package.
+4. A damage law: a low-dimensional predictive model of relative degradation from the corruption vector, tested by transfer to held-out defects and datasets against a per-defect lookup table.
+5. A detectability law: the silence index predicts alarm recall and lead time, is evaluated against ATC and static thresholds, and is reported with MAE, lead time, and false-alarm rate.
+6. An open artifact: code, configs, run results, and a reproducibility package.
 
 ## 6. What is not claimed
 
@@ -53,6 +72,8 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 - Not a claim that observability beats labels in general. It tests specific defects under specific conditions.
 - Not a claim of universal defect coverage. Eight defects, three real domains.
 - Not a claim that the taxonomy is complete. It covers common operators, not every failure mode.
+- **Not a formal proof.** The damage law is an empirical model fitted on controlled injections, with explicit domain limits. A failure to collapse onto the corruption vector is a reportable result, not a reason to hide the model.
+- **Not a claim that alpha is directly observable in production.** The law computes alpha from paired clean and corrupted predictions, an oracle that is unavailable during deployment. The operational predictor estimates it from metadata and confidence signals and must report that estimation error separately.
 
 ## 7. Adjacent work to cite and differentiate
 
@@ -80,6 +101,9 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 ## 8. Open questions to resolve during the build
 
 - Does the severity definition transfer across defects, or does each defect need its own scale?
+- Do the eight defects collapse onto one damage curve in (alpha, beta, gamma) space, or does interaction require extra terms?
+- Does the silence index rank conditions by lead time within a dataset, across datasets, and for unseen defects?
+- Can alpha be estimated well enough from metadata proxies to keep the predictor useful without labels?
 - Does join topology (star versus snowflake, one-to-one versus one-to-many) change the interaction magnitude?
 - Is the 90-day label window in Online Retail II stable across the 2011 test period, or does right-censoring bias the last quarter?
 - Are interaction effects stable across datasets, or domain-specific?
@@ -94,18 +118,24 @@ The gap is a measurement gap, not an algorithm gap. State that plainly in the pa
 - Do not quote a number from an abstract without checking the full text.
 - Keep a literature matrix with columns: claim, method, dataset, metric, limitation, threat to this project. The verified matrix is `docs/litmatrix.md`; update it when a source is added or corrected.
 
-## 10. Narrow contribution claim
+## 10. Contribution claim
 
 PipeFault should not claim that data quality, fault injection, or ML
 observability is new. Existing work already covers static data-quality impact,
-fault injection, production ML observability, feature freshness, dataset-shift
-detection, and label-free accuracy estimation.
+fault injection, production observability, feature freshness, pipeline
+debugging, and label-free accuracy estimation.
 
-The defensible claim is narrower: PipeFault provides a reproducible measurement
-study that connects operator-level defects, event-time semantics, compounding
-treatments, delayed labels, and early-warning evaluation across real tabular
-pipelines. The contribution is the controlled comparison and evidence, not a
-new prediction algorithm.
+The headline claim is the law: operator-level defects can be represented by a
+small corruption vector (alpha, beta, gamma), and that vector predicts both how
+much a model degrades and whether standard monitors can see it before labels
+arrive. The measurement study is the evidence base. The harness is the
+instrument.
+
+The supporting claim is narrower: this is the first controlled comparison that
+combines operator-level defects, event-time semantics, compounding treatments,
+delayed labels, and early-warning evaluation on real tabular pipelines. If the
+law fails to collapse, the supporting claim still stands on its own as a
+benchmark contribution.
 
 ```mermaid
 flowchart LR
