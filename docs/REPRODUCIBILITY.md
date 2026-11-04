@@ -10,6 +10,7 @@ First-class artifact, not an afterthought. Adapted from MARGoS (arXiv:2610.13772
 - Dataset manifest verification (no run starts on a changed download).
 - Environment fingerprint (Python version, package versions, OS).
 - MLflow run ID and artifact paths.
+- Corruption annotation record: alpha, beta, gamma, silence index, matched-row count, `tau_pred`, and the threshold hash. A missing annotation is an incomplete run.
 
 ## 2. Frozen configs
 
@@ -26,6 +27,8 @@ Raw files are SHA-256 pinned in `data/manifest.sha256`. A changed download abort
 ## 5. Determinism tests
 
 Every injector must pass: same seed gives byte-identical output; exact affected-unit count within tolerance; no in-place mutation of inputs. CI runs these on every push.
+
+Annotation is deterministic too: the same clean/defect pair, matcher, and frozen thresholds must produce identical alpha, beta, gamma, and silence index. A tolerance is allowed only for floating-point summation order, and it is recorded.
 
 ## 6. One-command replay
 
