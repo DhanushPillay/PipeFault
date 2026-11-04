@@ -14,9 +14,11 @@
 |---|---|---|---|---|
 | Data download | Python script plus manifest | Checksums and license tracking for three datasets | Manual download | Never |
 | Natural-defect audit | Python checks | Calibrates severity against real defects | Manual EDA | Never |
+| Corruption annotation | Python module over paired runs | Computes alpha, beta, gamma, and the silence index | Manual analysis | Never |
 | Replay | Python generator | Deterministic event-time order | Static CSV | Never |
 | Reproducibility | Config hashing, seed propagation, frozen configs, env fingerprint | One-command replay | Manual notes | Never |
-| Simulator validation | Spark row-level agreement gate | Construct validity | Simulator only | If week 8 slips || Event-time engine | Custom simulator, about 200 lines | Watermarks, lateness, windows | Spark from day one | Never |
+| Simulator validation | Spark row-level agreement gate | Construct validity | Simulator only | If week 8 slips |
+| Event-time engine | Custom simulator, about 200 lines | Watermarks, lateness, windows | Spark from day one | Never |
 | Fault injection | Python package | Config-driven, reversible, testable | Ad-hoc mutations in notebooks | Never |
 | Transformation | dbt-duckdb plus Polars | SQL models, tests, resume value | Plain DuckDB SQL | Behind schedule |
 | Storage | Parquet plus DuckDB | Cheap, portable, SQL-queryable | CSV | Never |
@@ -46,6 +48,10 @@ flowchart LR
     J --> K[Predictor<br/>degradation + lead time]
     I --> L[MLflow]
     K --> L
+    I --> O[Corruption annotation<br/>alpha, beta, gamma, s]
+    J --> O
+    O --> P[Law fit<br/>damage + detectability]
+    P --> L
     L --> M[FastAPI]
     L --> N[Streamlit]
 ```
@@ -82,10 +88,15 @@ pipefault/
     timestamp.py       # D8
     metadata.py        # metadata-borne (stale/superseded, lineage gaps) - post-pilot
     registry.py        # name to injector
-    qc.py              # perturb-then-verify checks on injected defects  observe/
+    qc.py              # perturb-then-verify checks on injected defects
+  observe/
     signals.py         # per-batch signal extraction
     drift.py           # PSI, KS
     confidence.py      # AC, ATC
+  analyze/
+    annotation.py      # alpha, beta, gamma, silence index from paired runs
+    law.py             # damage-law fit, transfer, lookup baseline
+    detectability.py   # recall, lead time, silence-index ranking
   predict/
     dataset.py         # build training table from runs
     model.py           # LightGBM regressor, quantile variant
@@ -162,6 +173,19 @@ confidence_mean, confidence_std, atc_estimate,
 
 Signal names and definitions are frozen before the full sweep. Adding a signal later is a documented deviation.
 
+### Corruption annotation record
+
+One record per condition, computed from the paired clean run and written before any law fit:
+
+```text
+condition_id, clean_run_id, defect_run_id,
+matched_rows, tau_pred, thresholds_hash,
+alpha, beta, gamma, silence_index,
+alpha_definition_version, oracle
+```
+
+`alpha` uses paired predictions and is marked `oracle: true`. `beta` is read from the signal table with the frozen threshold hash. `gamma` comes from retained row counts. The record is never edited by hand; a bad pairing fails the run instead.
+
 ## 6. Failure handling
 
 - **Missing partition:** the run fails fast with the partition ID and the expected path. No silent skip.
@@ -170,6 +194,7 @@ Signal names and definitions are frozen before the full sweep. Adding a signal l
 - **Label-window overlap:** abort if the embargo does not cover the label horizon (1 day TLC, 7 days Olist, 90 days Retail).
 - **NaN or infinite metric:** abort the run and log the condition. Do not impute model metrics.
 - **Non-deterministic injector:** test failure. The unit test compares two runs with the same seed.
+- **Clean/clean annotation non-zero:** if alpha, beta, or gamma exceed tolerance on a clean/clean pair, abort the law analysis and fix the matcher or pairing.
 - **Simulator divergence:** if row-level agreement with Spark is below 99%, fail the validation gate and record it.
 
 ## 7. Security and trust boundaries
