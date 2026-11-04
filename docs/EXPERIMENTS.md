@@ -74,32 +74,73 @@ Before the sweep, run the natural-defect audit and record the baseline rate for 
 | Regression confidence proxy | Ensemble or quantile spread for TLC; secondary comparison, not a headline |
 | Static thresholds | Row count ±20%, null rate >5%, schema hash change |
 | Oracle | Knows the injected defect and severity |
+| Per-defect lookup table | Mean observed degradation per defect and severity; the law must beat it on held-out defects |
 
 Thresholds for PSI, KS, and static rules are tuned on a validation slice of clean runs and frozen before the test runs. ATC is implemented from `https://github.com/saurabhgarg1996/ATC_code`: choose the threshold on clean validation so the fraction of validation confidences above it equals clean accuracy, then apply that threshold to the target batch. Convert ATC and AC accuracy estimates to relative degradation with `(M_clean - M_hat) / M_clean` so they are comparable with the observed degradation. This conversion is part of the baseline, not a post-hoc adjustment.
 
 - **Early-warning panel (not ATC alone):** ATC + AC (mean max-softmax) + DoC (source-target confidence difference) + MCD (margin-based, top-2). Recalibrate thresholds per window via source replay or conformal quantiles; temperature-scale before thresholding. Report all four plus PSI/KS.
 - **Drift thresholds:** calibrated on a held-out clean stream for a target false-alarm rate (e.g., 1 alert per 100 windows); multi-feature aggregation (max/quantile); require persistence (k consecutive windows) before alarm. Bonferroni/Holm across features.
 
-## 6. Metrics
+## 6. Corruption-space annotation
+
+Every condition is paired with its clean control and annotated before any analysis. The three components are the only inputs to the damage and detectability laws; no defect identity enters the primary model.
+
+| Component | Symbol | Definition | Oracle? |
+|---|---|---|---|
+| Decision displacement | alpha | Fraction of matched rows where `abs(yhat_defect - yhat_clean) > tau_pred`, with `tau_pred = 0.1 x SD(yhat_clean)` frozen on clean validation | Yes: needs paired predictions |
+| Distribution displacement | beta | `max` over monitored features and monitor families of `min(1, statistic / frozen_threshold)`, using PSI and KS | No: monitors see this in production |
+| Coverage displacement | gamma | `min(1, abs(N_defect - N_clean) / N_clean)` on retained rows after the operator | No: row counts are observable |
+
+Silence index: `s = alpha / (alpha + beta + gamma + epsilon)`, clipped to [0, 1].
+
+Rules:
+
+- `tau_pred` and every PSI/KS threshold are frozen on clean validation before test annotation. No threshold is tuned on defect runs.
+- Rows are matched on the dataset's natural key: TLC pickup time and zone, Olist order id, Retail invoice line. Duplicate rows are matched by multiplicity; if a key is duplicated, pair the first occurrence and record the rule in the run metadata.
+- Alpha is computed only on rows present in both runs. Rows added or dropped by the operator enter gamma, not alpha.
+- For classification tasks, `yhat` is the positive-class probability; the same tolerance rule applies.
+- Alpha is an oracle quantity. It measures what the defect did to decisions, not what a production monitor can see. The predictor reports an estimation error when alpha is replaced by a metadata proxy.
+- Every run record carries `alpha`, `beta`, `gamma`, `s`, the matched-row count, and the frozen thresholds.
+- A clean/clean pair is annotated too. It should give alpha, beta, and gamma near zero; if it does not, the pairing or the matcher is wrong.
+
+## 7. Metrics
 
 - **Relative degradation:** `(M_defect - M_clean) / M_clean`. M is RMSE for TLC regression, and error rate `1 - F1` for Olist and Retail classification. Positive means worse.
+- **Decision displacement (alpha):** fraction of matched rows whose prediction moves by more than `tau_pred`. Reported per condition with the matched-row count.
+- **Distribution displacement (beta):** maximum normalized PSI or KS statistic over monitored features, using the frozen thresholds defined in section 6.
+- **Coverage displacement (gamma):** relative change in retained row count.
+- **Silence index (s):** `alpha / (alpha + beta + gamma + epsilon)`. Higher means the damage is concentrated in decisions that monitors cannot observe.
+- **Law prediction error:** MAE and R2 of predicted versus observed relative degradation on held-out conditions.
+- **Law transfer gap:** target-dataset error minus source-dataset error for a law fitted on TLC and applied without refitting.
 - **Interaction index, primary:** `D_AB - D_A - D_B` (RERI). Positive means super-additive. Report the multiplicative form `D_AB - D_A - D_B - D_A D_B` as a sensitivity check.
-- **Multi-way decomposition:** for triples, report the three-way joint RERI and the pairwise RERIs with the third defect absent (Katsoulis & Bamia 2020). Bootstrap CIs for every RERI; the delta method is unstable near zero.- **Prediction MAE and R2:** predicted versus observed relative degradation on held-out conditions.
+- **Multi-way decomposition:** for triples, report the three-way joint RERI and the pairwise RERIs with the third defect absent (Katsoulis & Bamia 2020). Bootstrap CIs for every RERI; the delta method is unstable near zero.
+- **Prediction MAE and R2:** predicted versus observed relative degradation on held-out conditions.
 - **Lead time:** number of batches between the first warning and the batch where degradation crosses the damage threshold (10% relative).
 - **False-alarm rate:** false warnings per clean batch at a fixed recall of 0.8.
 - **Detection delay:** batches between injection and first alarm.
 - **Cost-weighted regret:** degradation times batch cost, with and without warning.
 
-## 7. Statistics
+## 8. Statistics
 
 - Paired bootstrap with 10,000 resamples for all confidence intervals.
 - Mixed-effects model: fixed effects for dataset, model family, defect family, and severity; random intercept for seed.
-- Benjamini-Hochberg FDR for exploratory families; Holm-Bonferroni for the four pre-registered hypotheses.
+- Benjamini-Hochberg FDR for exploratory families; Holm-Bonferroni for the six pre-registered hypotheses.
 - Report mean, standard deviation, and 95% CI for every headline number.
 - Minimum three seeds for the primary tier; five for the full tier. No optional stopping.
 - Mixed-effects model includes a dataset × defect interaction term; if it is significant, do not pool the datasets without reporting it.
 
-## 8. Ablations
+### Law evaluation protocol
+
+- **Primary comparison:** leave-one-defect-out on TLC. Fit on seven defects across all severities and seeds, predict the held-out defect. This tests whether the law generalizes beyond the defect it was fitted on.
+- **Three models, all reported:** (a) corruption-only, using `alpha`, `beta`, `gamma`; (b) per-defect lookup table, using the mean degradation for that defect and severity; (c) corruption plus defect and dataset identity.
+- **Functional form:** a linear model and a monotone gradient-boosted model. The linear form is the headline because it is interpretable; the boosted form checks whether unmodeled interactions matter. Pre-register the linear form as primary.
+- **H5 test:** corruption-only MAE must be at least 10% lower than the lookup table on held-out defects, and identity must not lower MAE by more than 10%. If identity helps more, the law is incomplete and the paper says so.
+- **Transfer:** fit on TLC, apply to Olist and Retail without refitting. Report R2 and the transfer gap. A negative transfer result is reported, not hidden.
+- **H6 test:** per condition, compute alarm recall at the frozen false-alarm rate and lead time. Correlate the silence index with recall and lead time using Spearman and ROC AUC. Test whether alpha-dominant conditions have recall at least 10 points lower than beta/gamma-dominant conditions.
+- **Bootstrap:** paired bootstrap with 10,000 resamples over conditions for every law and detectability comparison.
+- **No tuning on test conditions:** thresholds, `tau_pred`, and the functional form are fixed before the held-out evaluation. Report every model, including failures.
+
+## 9. Ablations
 
 | Ablation | Question |
 |---|---|
@@ -108,12 +149,16 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 | Predictor type | Is LightGBM better than linear or MLP on this feature set? |
 | Leave-one-defect-out | Does the predictor generalize to an unseen defect? |
 | Leave-one-dataset-out | Does it generalize across domains? |
+| Law functional form | Does a linear law match a boosted law, or do interactions matter? |
+| Corruption components | Does alpha alone beat the full vector, and does gamma add over alpha? |
+| Alpha threshold | How sensitive is the law to `tau_pred` (0.05, 0.1, 0.2 SD)? |
+| Oracle vs proxy alpha | How much does law error grow when alpha is estimated rather than paired? |
 | Severity interpolation | Can it predict 25% from training on 1, 5, 10, 50%? |
 | Event-time features | Do watermark features matter, or do row counts suffice? |
 | Join topology | Does the star schema (TLC) interact differently from the multi-hop schema (Olist)? |
 | Natural-defect baseline | Do results change if runs with high natural-defect rates are excluded? |
 
-## 9. Run management
+## 10. Run management
 
 - Every run has a config hash, a code commit, a seed, and an MLflow run ID.
 - Artifacts: metrics JSON, predictions parquet, signal table parquet, injector metadata JSON.
@@ -122,7 +167,7 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 - `make reproduce RUN_ID=...` re-executes one run and compares metrics.
 - Results are never edited by hand. Figures are generated from the run table.
 
-## 10. Runtime budget
+## 11. Runtime budget
 
 | Workload | Estimate |
 |---|---|
@@ -133,7 +178,7 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 | TLC pilot, 40 conditions | under 30 minutes |
 | Simulator vs Spark validation, 3 conditions | under 2 hours |
 
-## 11. Result tables to produce
+## 12. Result tables to produce
 
 - **R0:** Natural-defect audit per dataset, with the injection levels that exceed the natural rate.
 - **R1:** Clean baseline performance per dataset and model.
@@ -141,8 +186,10 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 - **R3:** Pairwise interaction index, heatmap, and count of significant pairs.
 - **R4:** Early-warning comparison: MAE, R2, lead time, false-alarm rate per baseline.
 - **R5:** Ablations by signal family and feature type.
+- **R6:** Corruption-space summary and damage law. Per-defect ranges of alpha, beta, gamma, and s; observed versus predicted degradation; leave-one-defect-out MAE and R2 for the corruption-only, lookup-table, and identity models; TLC-to-Olist and TLC-to-Retail transfer.
+- **R7:** Detectability. Alarm recall, lead time, and false-alarm rate by silence-index tercile; Spearman and ROC AUC for s against recall and lead time; alpha-dominant versus beta/gamma-dominant comparison.
 
-## 12. Threats to validity
+## 13. Threats to validity
 
 - **Construct:** injected defects may not match real production defects. Mitigate with mechanics derived from operator semantics, a taxonomy review, and the natural-defect audit that calibrates severity to defects already present in the data.
 - **External:** three real domains with different schemas and tasks. Do not claim universal coverage; report domain-specific effects.
@@ -150,7 +197,7 @@ Thresholds for PSI, KS, and static rules are tuned on a validation slice of clea
 - **Conclusion:** multiple comparisons are corrected; all conditions are reported, including nulls.
 - **Simulator fidelity:** validated against Spark on a subset; divergence is reported, not hidden.
 
-## 13. Minimum publishable experiment
+## 14. Minimum publishable experiment
 
 The first complete study is intentionally smaller than the full grid:
 
@@ -165,6 +212,9 @@ The first complete study is intentionally smaller than the full grid:
 	defect that should not materially change the target metric.
 - Outputs: degradation curves, confidence intervals, detection delay, lead
 	time, false-alarm rate, and exact affected-unit counts.
+- Annotation: alpha, beta, gamma, and s for every condition. The pilot fits the
+	law but does not claim transfer; transfer is tested on the minimum tier
+	(TLC to Olist) once the pilot passes.
 
 Do not begin the full 3,330-run grid until this pilot passes the determinism,
 leakage, and interpretability gates. A null result is publishable when the
@@ -184,10 +234,24 @@ flowchart TD
 		H --> I
 ```
 
-## 14. Negative controls and fairness of comparison
+## 15. Negative controls and fairness of comparison
 
 The experiment must include clean batches with legitimate seasonal or volume
 changes. These are negative controls for false alarms. Defect and clean runs
 must share the same sampled records, split, model configuration, and seed; only
 the declared treatment may differ. Thresholds are chosen on clean validation
 runs and frozen before test evaluation.
+
+The law needs its own negative controls:
+
+- **Permuted corruption vector:** shuffle alpha, beta, and gamma across
+  conditions and refit. Predictive R2 must collapse to near zero on held-out
+  defects. If it does not, the split leaks or the vector encodes condition
+  order.
+- **Identity-only model:** a lookup table keyed by defect and severity. This is
+  the comparison the law must beat, not a strawman. Report it in the same table.
+- **Permuted severity:** assign severities at random and refit. The law must
+  lose predictive power.
+- **Clean/clean pair:** alpha, beta, and gamma should be near zero. If they are
+  not, the matcher or the pairing is wrong and no law result is trusted until it
+  is fixed.
