@@ -1,13 +1,14 @@
 # Literature matrix
 
 Verified on 2026-10-28 against Crossref `works/{doi}` and OpenAlex
-`works/doi:{doi}`. Every DOI below resolved to the title and first author
-shown. Two citations in `docs/RESEARCH.md` were corrected after this check:
-the ASE 2022 leakage DOI belongs to Yang et al., not Kapoor and Narayanan, and
-the Wu and Keogh DOI was wrong. Preprints are listed separately and are not
-counted toward the 30-paper target.
+`works/doi:{doi}`. Pipeline-debugging works were added on 2026-11-04 and
+checked against both APIs. Every DOI below resolved to the title and first
+author shown. Two citations in `docs/RESEARCH.md` were corrected after this
+check: the ASE 2022 leakage DOI belongs to Yang et al., not Kapoor and
+Narayanan, and the Wu and Keogh DOI was wrong. Preprints are listed separately
+and are not counted toward the 30-paper target.
 
-**Coverage:** 37 DOI-verified papers, plus 5 arXiv-only sources.
+**Coverage:** 43 DOI-verified papers, plus 5 arXiv-only sources.
 
 ## How to read this
 
@@ -89,7 +90,20 @@ counted toward the 30-paper target.
 | Sukprasert et al., `10.1145/3627703.3650079` | EuroSys 2024 | Carbon-aware temporal and spatial shifting has limited practical benefit | Trace-based upper-bound analysis | Cloud workload traces | Carbon reduction | Scope control; not data quality |
 | Shahmirzadi et al., `10.1007/s00607-026-01718-w` | Computing 2026 | Hybrid ML predicts task failure on cluster traces | Supervised ML on traces | Google cluster traces | Failure-prediction accuracy | Infrastructure failure, not data defects |
 
-## 8. Preprints and non-DOI sources
+## 8. Pipeline debugging and attribution
+
+| Work | Venue | Claim | Method | Data | Metric | Threat to this project |
+|---|---|---|---|---|---|---|
+| Grafberger et al., `10.1145/3448016.3452759` | SIGMOD 2021 | Distribution errors in ML pipelines can be detected and explained at the operator level | MLINSPECT debugger | ML pipelines | Distribution violations | Debugging focus; no damage law, severity sweep, or lead time |
+| Grafberger et al., `10.1007/s00778-021-00726-w` | VLDB J. 2022 | Distribution debugging can be framed as constraints over pipeline operators | Constraint-based debugging | ML pipelines | Violation detection | Detects violations; no compounding or detectability prediction |
+| Rezig et al., `10.14778/3415478.3415527` | PVLDB 2020 | Fine-grained lineage supports debugging data science pipelines | Dagger lineage system | Large-scale pipelines | Debugging capability | Requires lineage; no injection, degradation, or early warning |
+| Lourenço et al., `10.1145/3318464.3384692` | SIGMOD 2020 | Pipeline debugging can search the parameter space to explain failures | BugDoc system | Computational pipelines | Failure explanation | Single-pipeline debugging; no streaming monitor evaluation |
+| Zhang et al., `10.1145/3702992` | TOSEM 2025 | AutoML pipeline faults can be localized and repaired | DREAM | AutoML pipelines | Fault localization and repair | Code and configuration faults, not operator data defects |
+| Lazzaro et al., `10.14778/3827998.3828102` | PVLDB 2026 | Provenance plus explanations support interactive pipeline debugging | PROXAI | ML pipelines | Debugging quality | Interactive diagnosis; no quantitative damage law |
+
+These systems answer "where did it break?" They do not answer "how much damage will this defect do, and will a monitor see it before labels arrive?" That distinction is the space PipeFault occupies.
+
+## 9. Preprints and non-DOI sources
 
 Not counted toward the 30-paper target. Verified against the arXiv API on
 2026-10-28.
@@ -102,16 +116,24 @@ Not counted toward the 30-paper target. Verified against the arXiv API on
 | Budach et al. | arXiv:2207.14529 | Data quality dimensions affect tabular ML performance | Static tables, no streaming or lead time |
 | Zhou et al. | arXiv:2406.19614 | Surveys DQ dimensions and tools for ML | Survey; no controlled pipeline study |
 
-## 9. Synthesis
+## 10. Synthesis
 
 Three claims are well covered: static data quality affects ML performance;
 leakage inflates evaluation; event-time systems provide watermarks and
-exactly-once semantics. The gap is the intersection:
+exactly-once semantics. Pipeline debugging is also covered: MLINSPECT, Dagger,
+BugDoc, DREAM, and PROXAI locate and explain failures after they happen.
+
+The gap is the intersection:
 
 1. Defects are injected at the operator level (join, watermark, SCD, schema),
    not only as corrupted cells.
 2. Severities are controlled so single and compounding effects are comparable.
 3. Observability metadata is evaluated on lead time before labels arrive,
    against ATC and static thresholds.
+4. A low-dimensional corruption vector predicts both damage and detectability,
+   including for defects the model was not fitted on.
 
-No paper above measures all three. That is the claim the experiment must earn.
+No paper above measures all four. The debugging systems answer where a failure
+came from; none predicts how much damage an operator defect will cause or
+whether monitors will see it before labels do. That is the claim the experiment
+must earn.
