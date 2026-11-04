@@ -13,6 +13,7 @@ Commit this file before the full experiment sweep. Record every deviation in the
 - **RQ2:** Do co-occurring defects interact super-additively, and does the interaction depend on shared pipeline paths?
 - **RQ3:** Can observability metadata predict degradation before labels arrive, and how much lead time does it buy over ATC and static thresholds?
 - **RQ4:** Which signal families drive predictive power?
+- **RQ5:** Can a low-dimensional corruption vector, defined on model outputs, feature distributions, and coverage, predict both degradation and detectability across defect types and domains?
 
 ## 2. Hypotheses and falsification criteria
 
@@ -22,6 +23,8 @@ Commit this file before the full experiment sweep. Record every deviation in the
 | H2 | Defects on shared paths have a positive additive interaction (RERI > 0) | Median RERI is at most zero, or 95% CI includes zero for more than 70% of pairs |
 | H3 | On the two classification datasets, operator-aware observability features reduce degradation-prediction MAE by at least 20% versus ATC on silent defects, with median lead time of at least one batch. TLC is a secondary regression check using a confidence-spread proxy | MAE reduction is below 20% on both classification datasets, or lead time is below one batch on both |
 | H4 | Detection latency explains more variance in cost than detection accuracy | Latency coefficient is not significant in the mixed-effects model |
+| H5 | A model using only the corruption vector (alpha, beta, gamma) predicts relative degradation on held-out defects with at least 10% lower MAE than a per-defect lookup table, and transfers to a held-out dataset with R2 at least 0.5 | It fails to beat the lookup table, or adding defect or dataset identity lowers MAE by more than 10%, or transfer R2 is below 0.3 |
+| H6 | The silence index `s = alpha / (alpha + beta + gamma)` ranks conditions by alarm recall and lead time, and alpha-dominant defects have recall below 50% at the frozen false-alarm rate | Spearman correlation below 0.3, or AUC below 0.7, or alpha-dominant recall within 10 points of beta/gamma-dominant recall at matched severity |
 
 Silent value-corrupting defects are D3, D6, and D8. Volume defects are D1, D2, D4, and D5. D7 is a mixed missing/stale defect and is analyzed separately, not in the H1 contrast. The split is fixed before the sweep.
 
@@ -44,6 +47,26 @@ Severity is the fraction of the relevant unit affected. The unit differs by defe
 | D7 | Partial partition or stale backfill | Partition load | Fraction of partitions replaced with the previous snapshot | Missing or stale data |
 | D8 | Timestamp misalignment | Event-time assignment | Fraction of timestamps offset by 1 to 6 hours | Window and join misalignment |
 
+### Corruption-space annotation
+
+Every condition is annotated after the paired clean and defect runs complete, on the same rows. The annotation tests H5 and H6; it is not a treatment and does not change the run.
+
+| Component | Symbol | Definition | Computed from |
+|---|---|---|---|
+| Decision displacement | alpha | Fraction of matched rows present in both runs with `abs(yhat_defect - yhat_clean) > tau_pred`, where `tau_pred = 0.1 x SD(yhat_clean)` | Paired clean and defect predictions |
+| Distribution displacement | beta | Maximum over monitored features and monitor families of `min(1, statistic / frozen_threshold)`, using PSI and KS | Feature table and frozen monitor thresholds |
+| Coverage displacement | gamma | `min(1, abs(N_defect - N_clean) / N_clean)` | Row counts |
+
+Silence index: `s = alpha / (alpha + beta + gamma + epsilon)`, clipped to `[0, 1]`.
+
+Rules:
+
+- Alpha is computed only on rows present in both runs. Rows removed or added are captured by gamma, not alpha.
+- For classification tasks, `yhat` is the positive-class probability.
+- `tau_pred` and the monitor thresholds are frozen on clean validation data before any test condition is annotated.
+- Alpha is an oracle quantity. It is used to test the law, not as a deployable signal. The predictor experiments estimate it separately from metadata and confidence.
+- Report alpha, beta, gamma, and `s` in every run record. A missing annotation is an incomplete run.
+
 ### Metadata-borne track (optional, post-pilot)
 
 A separate track for defects visible only through freshness, lineage, or provenance metadata, not through payload values (SARC-DQ style). Examples: stale dimension row superseded but not removed, backfill that rewrites history, lineage gap. This track is analyzed separately and does not enter the H1 silent-vs-volume contrast. Add only after the eight-defect pilot is interpretable.
@@ -55,6 +78,8 @@ A separate track for defects visible only through freshness, lineage, or provena
 - **Pairs:** all 28 pairs at 10% severity.
 - **Triples:** 5 pre-selected triples at 10% severity.
 - **Total per dataset, model, seed:** 74 conditions.
+
+Each condition is annotated with alpha, beta, gamma, and the silence index `s` before analysis. Annotation follows the corruption-space subsection in section 3 and is recorded with the run.
 
 Pre-selected triples: (D1, D3, D5), (D2, D4, D7), (D1, D6, D8), (D2, D3, D8), (D4, D5, D6). All eight defects appear at least once; D7 appears once because partition defects are the most expensive to inject.
 
@@ -106,6 +131,12 @@ Hyperparameters are fixed before the sweep and recorded in config. No per-condit
 | Lead time | Batches between warning and the damage threshold | Higher is better |
 | False-alarm rate | False warnings per clean batch at fixed recall | Lower is better |
 | Detection delay | Batches between injection and first alarm | Lower is better |
+| Decision displacement | alpha, section 3 | Higher means more hidden damage |
+| Distribution displacement | beta, section 3 | Higher means more visible to drift monitors |
+| Coverage displacement | gamma, section 3 | Higher means more visible to volume checks |
+| Silence index | `s = alpha / (alpha + beta + gamma)` | Higher means less detectable |
+| Law prediction error | MAE and R2 of predicted versus observed relative degradation on held-out conditions | Lower MAE, higher R2 |
+| Law transfer gap | MAE on held-out dataset minus MAE on the fit dataset | Lower is better |
 
 The additive RERI is primary because relative degradation is a ratio, not a probability. Report the multiplicative form as a sensitivity check, not as the headline.
 
@@ -113,9 +144,19 @@ The additive RERI is primary because relative degradation is a ratio, not a prob
 
 - Paired bootstrap, 10,000 resamples, 95% percentile intervals.
 - Mixed-effects model with dataset, model family, defect type, and severity as fixed effects and seed as a random intercept. Three datasets and three model families are too few for reliable random effects.
-- Benjamini-Hochberg FDR for exploratory families; Holm-Bonferroni for the four pre-registered hypotheses.
+- Benjamini-Hochberg FDR for exploratory families; Holm-Bonferroni for the six pre-registered hypotheses.
 - Three seeds for the minimum and primary tiers; five for the full tier. Report mean and standard deviation.
 - No optional stopping after the tier is chosen. Run the chosen tier to completion.
+
+### Law evaluation protocol
+
+- **Primary comparison:** corruption-only model (alpha, beta, gamma) versus a per-defect lookup table, evaluated by leave-one-defect-out on TLC.
+- **Secondary comparison:** corruption plus defect identity, and corruption plus dataset identity. If identity lowers MAE by more than 10%, the law is incomplete and the paper reports that.
+- **Transfer:** fit on TLC, evaluate on Olist and Retail without refitting. Report R2 and the MAE gap.
+- **Detectability:** rank conditions by the silence index and test the monotone association with alarm recall and lead time using Spearman correlation and ROC AUC.
+- **Uncertainty:** paired bootstrap over conditions, 10,000 resamples.
+- No feature selection on test conditions. Alpha, beta, and gamma are fixed by section 3 and are not tuned per dataset.
+- Report all three models in the same table, including the lookup table.
 
 ## 9. Stopping and re-scoping rules
 
@@ -123,6 +164,8 @@ The additive RERI is primary because relative degradation is a ratio, not a prob
 - Re-scoping options: reframe as a negative-result measurement paper, drop to the minimum grid, or switch to the SchemaMiner backup.
 - If the cross-dataset week-4 check shows the same defect has opposite-signed effects on two datasets, report it as a domain-dependence finding and do not pool the datasets without an interaction term.
 - If the simulator-versus-Spark agreement is below 99% at the row level, drop the streaming claim and report the harness as a micro-batch event-time simulator.
+- If H5 fails on TLC, keep the measurement study and drop the law claim. Do not add predictors, interactions, or new features until it passes; that is p-hacking.
+- If H6 fails, report detectability as defect-specific and drop the silence index from the headline.
 
 ## 10. Deviations log
 
