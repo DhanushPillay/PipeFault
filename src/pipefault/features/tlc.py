@@ -12,6 +12,8 @@ import pandas as pd
 import polars as pl
 import structlog
 
+from pipefault.data.provenance import add_provenance
+
 log = structlog.get_logger(__name__)
 
 TARGET: Final = "duration_min"
@@ -200,6 +202,7 @@ def prepare_tlc(
     for path in files:
         file_month = int(path.stem.rsplit("-", 1)[-1])
         frame = pl.read_parquet(path, columns=list(READ_COLUMNS))
+        frame = add_provenance(frame, dataset="tlc", file=path.name, seed=seed)
         raw_height = frame.height
         raw_rows += raw_height
         frame = clean_tlc(frame)
