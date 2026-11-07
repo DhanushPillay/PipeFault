@@ -85,15 +85,15 @@ Pre-selected triples: (D1, D3, D5), (D2, D4, D7), (D1, D6, D8), (D2, D3, D8), (D
 
 ### Tier choice (record before sweep)
 
-Minimum publishable (TLC, Olist; LightGBM, linear/logistic; 3 seeds; 888 runs) is the default. Primary and full tiers are recorded here before the sweep and are not upgraded after results are seen.
+Minimum publishable (TLC, MovieLens; LightGBM, linear/logistic; 3 seeds; 888 runs) is the default. Primary and full tiers are recorded here before the sweep and are not upgraded after results are seen.
 
 ### Grid staircase
 
 | Tier | Datasets | Model families | Seeds | Runs | Purpose |
 |---|---|---|---|---|---|
-| Minimum publishable | TLC, Olist | LightGBM, linear/logistic | 3 | 888 | Enough for a workshop paper |
-| Primary | TLC, Olist, Retail | LightGBM, linear/logistic | 3 | 1,332 | Main results |
-| Full | TLC, Olist, Retail | LightGBM, linear/logistic, MLP | 5 | 3,330 | Journal robustness |
+| Minimum publishable | TLC, MovieLens | LightGBM, linear/logistic | 3 | 888 | Enough for a workshop paper |
+| Primary | TLC, MovieLens, Retail | LightGBM, linear/logistic | 3 | 1,332 | Main results |
+| Full | TLC, MovieLens, Retail | LightGBM, linear/logistic, MLP | 5 | 3,330 | Journal robustness |
 
 The tier is chosen before the sweep and recorded. Do not run the full grid first. The week-3 pilot uses a 40-condition subset on TLC.
 
@@ -106,7 +106,7 @@ Before the sweep, measure the natural defect rate in each dataset for each defec
 | Dataset | Role | Task | Target | License |
 |---|---|---|---|---|
 | NYC TLC yellow taxi, 2024 | Primary; large, event-time | ETA regression | Trip duration (min) | NYC Terms of Use |
-| Olist Brazilian e-commerce | Multi-table joins | Review classification | `review_score >= 4` | CC BY-NC-SA 4.0 |
+| MovieLens 32M | Multi-table joins; media classification | High-rating classification | `rating >= 4` | GroupLens research license |
 | UCI Online Retail II | Long horizon, repeat purchase | Repeat-purchase classification | Purchase within 90 days | CC BY 4.0 |
 
 All three are real public datasets. Exact sources, schemas, splits, and leakage exclusions are in `docs/DATASETS.md`. Fixed sample sizes and date ranges are recorded in `configs/datasets/` and hashed into each run.
@@ -152,7 +152,7 @@ The additive RERI is primary because relative degradation is a ratio, not a prob
 
 - **Primary comparison:** corruption-only model (alpha, beta, gamma) versus a per-defect lookup table, evaluated by leave-one-defect-out on TLC.
 - **Secondary comparison:** corruption plus defect identity, and corruption plus dataset identity. If identity lowers MAE by more than 10%, the law is incomplete and the paper reports that.
-- **Transfer:** fit on TLC, evaluate on Olist and Retail without refitting. Report R2 and the MAE gap.
+- **Transfer:** fit on TLC, evaluate on MovieLens and Retail without refitting. Report R2 and the MAE gap.
 - **Detectability:** rank conditions by the silence index and test the monotone association with alarm recall and lead time using Spearman correlation and ROC AUC.
 - **Uncertainty:** paired bootstrap over conditions, 10,000 resamples.
 - No feature selection on test conditions. Alpha, beta, and gamma are fixed by section 3 and are not tuned per dataset.
@@ -178,7 +178,7 @@ The order of work is fixed by evidential value:
 3. Complete the TLC pilot with paired clean controls.
 4. Freeze thresholds and evaluate early-warning metrics.
 5. Add D5-D8 only after the pilot is interpretable.
-6. Add Olist and Retail for cross-domain validation.
+6. Add MovieLens and Retail for cross-domain validation.
 7. Add Spark validation, a dashboard, or additional models only when they
    support an explicit result.
 
