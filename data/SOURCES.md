@@ -12,13 +12,22 @@ Raw data is downloaded by `pipefault data download` and is never committed.
 - License: NYC Terms of Use, <https://www.nyc.gov/home/terms-of-use.page>
 - Notes: 2024 files do not include `cbd_congestion_fee`; that column starts in 2025.
 
-## Olist Brazilian e-commerce
+## MovieLens 32M
 
-- Dataset: <https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce>
-- License: CC BY-NC-SA 4.0
-- Access: free Kaggle account and API credentials.
-- Notes: non-commercial and share-alike. Do not redistribute raw files. The
-  audit and experiments use the CSVs locally.
+- Landing page: <https://grouplens.org/datasets/movielens/32m/>
+- Download: <https://files.grouplens.org/datasets/movielens/ml-32m.zip>
+- README: <https://files.grouplens.org/datasets/movielens/ml-32m-README.html>
+- License: GroupLens research license. Research use only; no commercial or
+  revenue-bearing use without permission; redistribution only under the same
+  terms. Cite Harper & Konstan 2015, <https://doi.org/10.1145/2827872>.
+- Files and MD5 checksums:
+  - `links.csv`: `8f033867bcb4e6be8792b21468b4fa6e`
+  - `movies.csv`: `0df90835c19151f9d819d0822e190797`
+  - `ratings.csv`: `cf12b74f9ad4b94a011f079e26d4270a`
+  - `tags.csv`: `963bf4fa4de6b8901868fddd3eb54567`
+- Notes: 32,000,204 ratings, 2,000,072 tags, 87,585 movies, and 200,948
+  users; ratings span 1995-01-09 to 2023-10-12. The downloader verifies every
+  MD5 after extraction. Raw files are not committed.
 
 ## UCI Online Retail II
 
