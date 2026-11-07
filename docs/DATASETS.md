@@ -7,10 +7,10 @@ Three real public datasets. No synthetic rows, no semi-synthetic control, no gen
 | Dataset | Role | Source | License | Size | Dates | Task | Target |
 |---|---|---|---|---|---|---|---|
 | NYC TLC yellow taxi, 2024 | Primary; large, event-time, static + time-varying dimension | NYC TLC / AWS Open Data | NYC Terms of Use | 12 monthly files; 800k sample | Jan–Dec 2024 | Pre-trip ETA regression | Trip duration (min) |
-| Olist Brazilian e-commerce | Multi-table joins; classification | Kaggle `olistbr/brazilian-ecommerce` | CC BY-NC-SA 4.0 | 99,441 orders; 112,650 items; 99,224 reviews | Sep 2016–Aug 2018 | Review score classification | `review_score >= 4` |
+| MovieLens 32M | Multi-table joins; media classification | GroupLens Research | GroupLens research license | 32,000,204 ratings; 2,000,072 tags; 87,585 movies; 200,948 users | 1995–2023 | High-rating classification | `rating >= 4` |
 | UCI Online Retail II | Single-table retail; long horizon; repeat-purchase label | UCI ML Repository, DOI 10.24432/C5CG6D | CC BY 4.0 | 1,067,371 lines | Dec 2009–Dec 2011 | Repeat purchase within 90 days | Binary |
 
-All three are downloadable without a subscription. Olist requires a free Kaggle account and acceptance of the dataset license.
+All three are downloadable without credentials or a subscription.
 
 ## 2. NYC TLC yellow taxi
 
@@ -83,78 +83,86 @@ Seed 42, 500k/150k/150k rows, LightGBM: validation RMSE 6.743, MAE 4.335, R2 0.7
 
 Negative fares, zero distance, durations outside 1–180 minutes, timestamps outside the file month, unknown zones 264/265, `passenger_count` above 6, `RateCodeID = 99`, duplicate rows. These calibrate the injectors; they are not the treatment.
 
-## 3. Olist Brazilian e-commerce
+## 3. MovieLens 32M
 
 ### Source and files
 
-- Kaggle: `https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce`
-- Download: `kaggle datasets download -d olistbr/brazilian-ecommerce` after accepting the license.
-- License: CC BY-NC-SA 4.0. Non-commercial, share-alike. Do not redistribute raw files. Academic research is permitted; check the license text before any commercial use.
+- Landing page: `https://grouplens.org/datasets/movielens/32m/`
+- Archive: `https://files.grouplens.org/datasets/movielens/ml-32m.zip` (239 MB; 238,950,008 bytes locally).
+- README and license: `https://files.grouplens.org/datasets/movielens/ml-32m-README.html`
+- License: GroupLens research license. Research use is allowed; commercial or revenue-bearing use requires permission; redistribution is allowed only under the same terms. Cite Harper & Konstan 2015, DOI `10.1145/2827872`. Raw files are not committed.
+- Four UTF-8 CSVs with one header row:
 
-Nine CSV files. Row counts below are from the public dataset listing; they will be replaced by the local audit once Kaggle access is configured.
+| File | Rows | Columns | MD5 |
+|---|---:|---|---|
+| `ratings.csv` | 32,000,204 | `userId`, `movieId`, `rating`, `timestamp` | `cf12b74f9ad4b94a011f079e26d4270a` |
+| `tags.csv` | 2,000,072 | `userId`, `movieId`, `tag`, `timestamp` | `963bf4fa4de6b8901868fddd3eb54567` |
+| `movies.csv` | 87,585 | `movieId`, `title`, `genres` | `0df90835c19151f9d819d0822e190797` |
+| `links.csv` | 87,585 | `movieId`, `imdbId`, `tmdbId` | `8f033867bcb4e6be8792b21468b4fa6e` |
 
-| File | Listed rows | Join key |
-|---|---|---|
-| `olist_orders_dataset.csv` | 99,441 | `order_id`, `customer_id` |
-| `olist_order_items_dataset.csv` | 112,650 | `order_id`, `product_id`, `seller_id` |
-| `olist_order_payments_dataset.csv` | 103,886 | `order_id` |
-| `olist_order_reviews_dataset.csv` | 99,224 | `order_id`, `review_id` |
-| `olist_customers_dataset.csv` | 99,441 | `customer_id`, `customer_unique_id` |
-| `olist_products_dataset.csv` | 32,951 | `product_id` |
-| `olist_sellers_dataset.csv` | 3,095 | `seller_id` |
-| `olist_geolocation_dataset.csv` | 1,000,163 | zip prefix |
-| `product_category_name_translation.csv` | 71 | category name |
+Ratings use half-star increments from 0.5 to 5.0. Timestamps are UTC epoch seconds. The downloader checks all four MD5s after extraction and fails on a mismatch.
 
 ### Task and prediction point
 
-Binary classification: `review_score >= 4` (positive) versus `<= 3` (negative). Predict at order approval, before delivery.
+Binary classification: `rating >= 4` (positive) versus `rating <= 3.5` (negative). Predict at the rating event, before the rating is observed. The positive rate is 49.8% (15,938,231 of 32,000,204).
 
 Allowed features:
 
-- Purchase and approval timestamps: hour, day of week, month, approval latency.
-- `order_estimated_delivery_date` minus purchase timestamp.
-- Item count, total price, total freight, freight-to-price ratio, product category, product weight and dimensions.
-- Customer state, seller state, whether customer and seller are in the same state.
-- Payment type, installments, payment value.
-- Seller history as of the order date: cumulative orders, average review score, cancellation rate.
+- User history strictly before the current rating: rating count, mean, standard deviation, share at or above 4, days since first rating, days since last rating.
+- Movie history strictly before the current rating: rating count, mean, share at or above 4.
+- Movie metadata: release year parsed from `title`, genre multi-hot encoding, genre count.
+- Event time: year, month, day of week, hour.
 
-Excluded because they are post-outcome or label-derived:
+Excluded because they are future or identity information:
 
-- `order_delivered_carrier_date`, `order_delivered_customer_date`, `order_status` after approval.
-- `review_creation_date`, `review_answer_timestamp`, `review_comment_title`, `review_comment_message`.
-- Any aggregate computed with reviews created after the order date.
-
-The review text is not used at all. Only the numeric score is the label.
+- Every rating at or after the current rating timestamp. A same-timestamp rating is not used.
+- `tags.csv` text. It is user-generated and can leak sentiment or the rating itself; tags are audited but never modeled.
+- `links.csv` external identifiers (`imdbId`, `tmdbId`). They are not available at prediction time and add no causal feature.
+- Raw `userId` and `movieId` as model features. Use the history aggregates instead; the raw ids are kept only for joins and pairing.
 
 ### Cleaning
 
-- Keep all orders with a non-null `review_score`. Do not condition on final delivery status; selecting only delivered orders would condition on a post-approval outcome. Record the status distribution and report it as a limitation.
-- Sensitivity check: repeat the main result on delivered-only orders. If the conclusion changes, report both and do not hide the selection effect.
-- Drop orders with no items or no payment record; record the count.
-- Aggregate order items to one row per order: item count, total price, total freight, product diversity, dominant category.
-- Aggregate payments to one row per order: payment type (mode), installments (max), payment value (sum).
-- Deduplicate reviews by `order_id`; if multiple reviews exist, keep the latest by `review_creation_date` and record the count.
-- Do not impute missing product dimensions with the global mean; use a missing indicator and a median by category fit on train only.
+- Keep ratings from 0.5 to 5.0 in half-star increments. Drop and count anything else.
+- Drop ratings whose `movieId` is absent from `movies.csv`; record the count.
+- Deduplicate `(userId, movieId)` by keeping the latest timestamp. The local audit finds zero duplicate pairs, so this is a guard against future data changes, not a step that alters the current release.
+- Keep `(no genres listed)` as a separate missing-genre indicator; do not impute a genre.
+- Keep movies with no ratings in the metadata table; they are candidates for the D2 referential-loss check, not training rows.
+- Join ratings to movies on `movieId`. The join is many-to-one and must not change the rating count; verify it.
 
 ### Time-varying dimension
 
-Seller history as of the order date:
+Daily user and movie statistics with `effective_from` and `effective_to`:
 
-- `seller_id`, `as_of_date`, `cum_orders`, `avg_review_score`, `cancel_rate`, `effective_from`, `effective_to`.
+- `userId`, `as_of_date`, `rating_count`, `mean_rating`, `std_rating`, `share_high`, `days_since_first`, `days_since_last`, `effective_from`, `effective_to`.
+- `movieId`, `as_of_date`, `rating_count`, `mean_rating`, `share_high`, `effective_from`, `effective_to`.
 
-Computed only from orders before the current order's purchase timestamp. The as-of join prevents future reviews from leaking into the feature.
+A statistic for day `d` uses only ratings with timestamp strictly before `d`. The as-of join picks the version effective at the rating timestamp. The faulty variant joins `is_latest = true`; that is D3.
 
 ### Split and sample
 
-- Train: Sep 2016–Dec 2017, ~70k orders.
-- Validation: Jan–May 2018, ~10k orders.
-- Test: Jun–Aug 2018, ~8k orders.
-- 7-day embargo between splits.
-- Target ~90k orders after filtering; verify after cleaning.
+- Train: 2019-01-01 to 2021-12-31.
+- Validation: 2022-01-01 to 2022-12-31.
+- Test: 2023-01-01 to 2023-10-13.
+- 1-day embargo between splits.
+- Features keep the full history before each split. Ratings before 2019 are used only to build history, never for fitting.
+- Sample 500k train, 150k validation, and 150k test rows by a deterministic hash of `(userId, movieId, timestamp)`. Compute the history features on the full table before sampling so that a sampled user keeps the same prior history.
+- Record raw rows, usable rows, sampled rows, and dropped rows per split.
 
 ### Natural defects to audit
 
-Orders without items, items without orders, reviews without orders, missing delivery timestamps, duplicate reviews, zero or negative freight, missing product category, missing dimensions. Record counts before injection.
+Local audit on the full 32M release:
+
+- 32,000,204 ratings, 200,948 users, 84,432 rated movies, 87,585 movies.
+- Zero null ratings, zero ratings outside 0.5-5.0, zero ratings for unknown movies, zero duplicate `(userId, movieId)` pairs, zero duplicate rows, zero future timestamps.
+- 7,080 movies have no listed genre; 3,153 movies have no ratings.
+- 2,000,072 tags across 51,323 movies; zero null tags, zero orphan tags, zero duplicate rows.
+- Timestamps span 1995-01-09T11:46:44 to 2023-10-13T02:29:07 UTC.
+
+The zero natural duplicate rate matters: D5 duplicate ingestion is a treatment with no pre-existing baseline, so the lowest severity is measured against zero, not against an already-dirty table. The missing genres and unrated movies are real joins and feed D2.
+
+### Clean reference result
+
+Not measured yet. The clean baseline is the next deliverable; do not compare defect runs to a placeholder.
 
 ## 4. UCI Online Retail II
 
@@ -219,7 +227,7 @@ Missing `CustomerID` (measured 243,007 of 1,067,371 rows, 22.8%), missing `Descr
 | Dataset | License | Raw data in repo | Redistribution | Attribution |
 |---|---|---|---|---|
 | TLC | NYC Terms of Use | No | Download script only | Cite NYC TLC |
-| Olist | CC BY-NC-SA 4.0 | No | Not permitted without share-alike compliance | Cite Olist / Kaggle |
+| MovieLens 32M | GroupLens research license | No | Allowed only under the same license terms | Cite Harper & Konstan 2015, DOI 10.1145/2827872 |
 | Online Retail II | CC BY 4.0 | No, but allowed | Allowed with attribution | Cite Chen 2012, DOI |
 
 Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses. The artifact ships download scripts, checksums, and derived aggregate tables only where the license permits.
@@ -228,6 +236,7 @@ Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses. Th
 
 | Dataset | Why not selected |
 |---|---|
+| Olist Brazilian e-commerce | Deferred. It needs Kaggle credentials and repeats the e-commerce task family already covered by Online Retail II. Add it only if a second marketplace domain is explicitly needed. |
 | UCI Bike Sharing | Real and CC BY 4.0, but 17,389 hourly rows and no natural join keys. Too small for a pipeline-defect study and redundant with TLC's time-series structure. Keep as a fourth-domain robustness check if reviewers ask. |
 | Citi Bike NYC | Real and large, but structurally redundant with TLC and adds another transport domain without a new join topology. |
 | Folktables / ACS PUMS | Real and public, but no event timestamps and no natural multi-table joins. Weak fit for streaming and as-of defects. |
@@ -242,8 +251,8 @@ Code: MIT. Documentation: CC BY 4.0. Datasets retain their original licenses. Th
 
 TLC is the primary dataset because it combines a large event-time table, a
 time-varying zone dimension, a clear prediction point, and enough rows for
-stable repeated experiments. Olist and Retail are cross-domain validation, not
-prerequisites for the first pilot.
+stable repeated experiments. MovieLens and Retail are cross-domain validation,
+not prerequisites for the first pilot.
 
 The local execution strategy is:
 
@@ -262,8 +271,9 @@ defect definitions, missing controls, or poor statistical reporting.
 | 2026-10-28 | TLC 2024 monthly Parquet URLs | Verified on the NYC TLC page |
 | 2026-10-28 | TLC zone lookup CSV | Verified on the NYC TLC page |
 | 2026-10-28 | TLC 2024 schema and 2025 `cbd_congestion_fee` | Verified on the NYC TLC page |
-| 2026-10-28 | Olist row counts and table names | Listed on Kaggle; local load pending credentials |
-| 2026-10-28 | Olist license CC BY-NC-SA 4.0 | Kaggle dataset listing |
+| 2026-11-07 | MovieLens 32M URL, counts, license, MD5s | Verified on the GroupLens page and README |
+| 2026-11-07 | MovieLens local download | 238,950,008 bytes; all four MD5s passed |
+| 2026-11-07 | MovieLens local audit | 32,000,204 ratings; 0 invalid; 0 duplicate rows; 7,080 missing genres; 3,153 unrated movies |
 | 2026-10-28 | Online Retail II CC BY 4.0, DOI, fields, dates | Verified on the UCI page |
 | 2026-10-28 | TLC 2024-01 local audit | 2,964,624 rows; see metrics above |
 | 2026-10-28 | TLC 2024 full local audit | 41,169,720 rows; 526,866 invalid durations; out-of-range timestamps detected |
