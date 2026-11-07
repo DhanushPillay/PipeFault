@@ -11,6 +11,6 @@ Please open a private security advisory on GitHub or email the maintainer. Do no
 ## Data and secrets
 
 - No credentials are stored in the repository.
-- Downloads use public URLs only; Olist requires user-provided Kaggle credentials.
+- Downloads use public URLs only. No dataset requires account credentials.
 - Raw data and artifacts are gitignored.
 - CI runs gitleaks and pip-audit on every pull request.
