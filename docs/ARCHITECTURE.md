@@ -35,7 +35,7 @@
 
 ```mermaid
 flowchart LR
-    A[Raw files<br/>TLC, Olist, Retail] --> A2[Natural-defect audit<br/>calibrate severity]
+    A[Raw files<br/>TLC, MovieLens, Retail] --> A2[Natural-defect audit<br/>calibrate severity]
     A2 --> B[Replay generator<br/>event-time order]
     B --> C[Injector<br/>8 defect types]
     C --> D[Event-time simulator<br/>watermarks, lateness]
@@ -56,7 +56,7 @@ flowchart LR
     L --> N[Streamlit]
 ```
 
-The same harness runs three tasks: TLC duration regression, Olist review classification, and Retail repeat-purchase classification. Each has its own fact table and dimension set, but the injector interface, observability schema, and evaluation code are shared. That is what makes cross-domain comparison possible without a synthetic control.
+The same harness runs three tasks: TLC duration regression, MovieLens rating classification, and Retail repeat-purchase classification. Each has its own fact table and dimension set, but the injector interface, observability schema, and evaluation code are shared. That is what makes cross-domain comparison possible without a synthetic control.
 
 The injector sits between replay and the event-time engine so that defects can affect event arrival, not just table contents. A second injection point sits after transformation for schema and partition defects.
 
@@ -191,7 +191,7 @@ alpha_definition_version, oracle
 - **Missing partition:** the run fails fast with the partition ID and the expected path. No silent skip.
 - **Raw hash mismatch:** abort the run before any feature build. A changed download is a different experiment.
 - **Schema mismatch on load:** abort with a diff, unless the run is explicitly testing that defect.
-- **Label-window overlap:** abort if the embargo does not cover the label horizon (1 day TLC, 7 days Olist, 90 days Retail).
+- **Label-window overlap:** abort if the embargo does not cover the label horizon (1 day for TLC and MovieLens, 90 days for Retail).
 - **NaN or infinite metric:** abort the run and log the condition. Do not impute model metrics.
 - **Non-deterministic injector:** test failure. The unit test compares two runs with the same seed.
 - **Clean/clean annotation non-zero:** if alpha, beta, or gamma exceed tolerance on a clean/clean pair, abort the law analysis and fix the matcher or pairing.
@@ -200,7 +200,7 @@ alpha_definition_version, oracle
 ## 7. Security and trust boundaries
 
 - No credentials in the repo. Data downloads use public URLs only.
-- No PII processing. Olist review text is not used at all; only the numeric score. Customer and seller identifiers are dropped or hashed before modeling.
+- No PII processing. MovieLens tag text is not used at all; only the numeric rating. User and movie identifiers are dropped or hashed before modeling.
 - The API is a demo, not a public service. Bind to localhost by default.
 - Docker images use pinned versions. No `latest` tags in the demo.
 
@@ -214,7 +214,7 @@ docker compose up --build
 
 Services: `api` on port 8000, `dashboard` on port 8501, `mlflow` on port 5000. Optional `redpanda` profile for the streaming validation.
 
-No cloud required. If a public demo is needed, deploy the dashboard to a free-tier VM or Hugging Face Spaces with aggregated data only. Do not redistribute Olist rows; the license is non-commercial and share-alike.
+No cloud required. If a public demo is needed, deploy the dashboard to a free-tier VM or Hugging Face Spaces with aggregated data only. Do not redistribute MovieLens rows outside the GroupLens license terms.
 
 ## 9. Performance targets
 
