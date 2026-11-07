@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -21,6 +22,8 @@ from pipefault.data.download import (
 from pipefault.data.manifest import verify_manifest, write_manifest
 from pipefault.features.tlc import DEFAULT_SIZES
 from pipefault.logging import configure_logging
+from pipefault.records import canonical_json, config_hash
+from pipefault.runstore import RunStore
 
 app = typer.Typer(no_args_is_help=True, help="Fault-injection benchmark for streaming ML.")
 data_app = typer.Typer(no_args_is_help=True, help="Download, audit, and verify datasets.")
@@ -154,6 +157,69 @@ def baseline(
         console.print(f"[red]Baseline failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     _print_baseline(payload)
+
+
+@app.command("run")
+def run(
+    config: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Experiment config YAML.",
+        ),
+    ],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Resolve and print the run without executing.")
+    ] = False,
+    force: Annotated[
+        bool, typer.Option("--force", help="Ignore a completed record and resolve again.")
+    ] = False,
+) -> None:
+    """Resolve a run config, hash it, and check the run store."""
+    payload = _load_config(config)
+    digest = config_hash(payload)
+    run_id = f"run-{digest[:12]}"
+    resolved = {"run_id": run_id, "config_hash": digest, "config": payload}
+
+    if dry_run:
+        typer.echo(canonical_json(resolved))
+        return
+
+    store = RunStore(get_settings().artifacts_dir / "runs")
+    if not store.should_run(run_id, force=force):
+        console.print(f"Run [bold]{run_id}[/bold] is already complete.")
+        return
+    console.print(f"Run [bold]{run_id}[/bold] resolved; execution lands in P1.")
+    raise typer.Exit(code=2)
+
+
+@app.command("annotate")
+def annotate() -> None:
+    """Compute alpha, beta, gamma, and the silence index for paired runs."""
+    console.print("Annotation lands in P2.")
+    raise typer.Exit(code=2)
+
+
+@app.command("law")
+def law() -> None:
+    """Fit and evaluate the corruption-space law."""
+    console.print("Law fitting lands in P2.")
+    raise typer.Exit(code=2)
+
+
+def _load_config(path: Path) -> dict[str, Any]:
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        console.print(f"[red]Invalid YAML:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    if not isinstance(payload, dict):
+        console.print("[red]Config must be a YAML mapping.[/red]")
+        raise typer.Exit(code=1)
+    return payload
 
 
 def _rows_for(name: str, result: dict[str, Any]) -> object:
