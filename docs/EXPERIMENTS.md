@@ -65,8 +65,8 @@ Before the sweep, run the natural-defect audit and record the baseline rate for 
 
 | Baseline | Description |
 |---|---|
-| Clean | Model trained and evaluated on clean data |
-| Single-defect | Model trained clean, evaluated on one defect |
+| Clean | Full pipeline trained and evaluated on clean data |
+| Full-pipeline defect | Defect applied at its operator stage in both training and evaluation; model retrained on the corrupted training data and evaluated on the corrupted test data |
 | PSI | Alarm when any feature PSI exceeds a threshold |
 | KS | Alarm when any feature KS statistic exceeds a threshold |
 | AC | Average confidence drop |
@@ -75,6 +75,8 @@ Before the sweep, run the natural-defect audit and record the baseline rate for 
 | Static thresholds | Row count ±20%, null rate >5%, schema hash change |
 | Oracle | Knows the injected defect and severity |
 | Per-defect lookup table | Mean observed degradation per defect and severity; the law must beat it on held-out defects |
+
+**Estimand.** The treatment is full-pipeline. A defect is applied at its operator stage before feature construction, and the corrupted data is used for both training and evaluation; the model is retrained. The clean reference is the same pipeline with no treatment. We do not hold the model fixed and evaluate only on corrupted inputs; that design measures distribution shift, not an operator-level pipeline defect. Every condition reports the affected unit count, the realized severity, and the clean/defect pair on the same raw rows.
 
 Thresholds for PSI, KS, and static rules are tuned on a validation slice of clean runs and frozen before the test runs. ATC is implemented from `https://github.com/saurabhgarg1996/ATC_code`: choose the threshold on clean validation so the fraction of validation confidences above it equals clean accuracy, then apply that threshold to the target batch. Convert ATC and AC accuracy estimates to relative degradation with `(M_clean - M_hat) / M_clean` so they are comparable with the observed degradation. This conversion is part of the baseline, not a post-hoc adjustment.
 
@@ -238,9 +240,13 @@ flowchart TD
 
 The experiment must include clean batches with legitimate seasonal or volume
 changes. These are negative controls for false alarms. Defect and clean runs
-must share the same sampled records, split, model configuration, and seed; only
-the declared treatment may differ. Thresholds are chosen on clean validation
-runs and frozen before test evaluation.
+must share the same raw sample, split boundaries, feature code, model
+configuration, and seed; only the declared treatment may differ. Under
+full-pipeline treatment the defect is applied at the same operator stage in
+training, validation, and test, and the model is retrained. If a defect is meant
+to alter only serving behaviour, that is a separate inference-only ablation, not
+the primary estimand. Thresholds are chosen on clean validation runs and frozen
+before test evaluation.
 
 The law needs its own negative controls:
 
