@@ -92,3 +92,13 @@ def test_unknown_and_missing_fields_are_rejected() -> None:
     del broken["config_hash"]
     with pytest.raises(ValueError, match="missing"):
         RunRecord.from_dict(broken)
+
+
+def test_metadata_round_trip_and_serializable_check() -> None:
+    record = make_record(metadata={"defect": "D5", "realized_severity": 0.1})
+
+    assert RunRecord.from_json(record.to_json()) == record
+    assert RunRecord.from_dict(record.to_dict()).metadata == record.metadata
+
+    with pytest.raises(ValueError, match="JSON-serializable"):
+        make_record(metadata={"bad": object()})

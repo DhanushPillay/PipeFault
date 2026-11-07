@@ -48,6 +48,7 @@ class RunRecord:
     tau_pred: float | None = None
     thresholds_hash: str | None = None
     created_at: str | None = None
+    metadata: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         for name in ("run_id", "dataset", "task", "model", "config_hash"):
@@ -76,6 +77,16 @@ class RunRecord:
                     raise ValueError("metric names must be non-empty")
                 if not math.isfinite(value):
                     raise ValueError(f"metric {key!r} is not finite")
+        if self.metadata is not None:
+            if not isinstance(self.metadata, dict):
+                raise ValueError("metadata must be a mapping")
+            for key in self.metadata:
+                if not isinstance(key, str) or not key.strip():
+                    raise ValueError("metadata keys must be non-empty strings")
+            try:
+                canonical_json(self.metadata)
+            except TypeError as exc:
+                raise ValueError("metadata must be JSON-serializable") from exc
 
     @property
     def annotation_complete(self) -> bool:
@@ -126,6 +137,7 @@ class RunRecord:
             tau_pred=data.get("tau_pred"),
             thresholds_hash=data.get("thresholds_hash"),
             created_at=data.get("created_at"),
+            metadata=data.get("metadata"),
         )
 
     @classmethod
