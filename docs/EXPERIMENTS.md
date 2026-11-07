@@ -4,7 +4,7 @@
 
 | Factor | Levels | Count |
 |---|---|---|
-| Datasets | TLC, Olist, Online Retail II | 3 |
+| Datasets | TLC, MovieLens 32M, Online Retail II | 3 |
 | Model families | LightGBM, linear/logistic, MLP | 3 |
 | Seeds | 0–4 | 5 |
 | Clean baseline | 1 per combination | 1 |
@@ -18,9 +18,9 @@ The full grid is the journal tier. Run the staircase, not the full grid first.
 
 | Tier | Datasets | Models | Seeds | Runs |
 |---|---|---|---|---|
-| Minimum publishable | TLC, Olist | LightGBM, linear/logistic | 3 | 888 |
-| Primary | TLC, Olist, Retail | LightGBM, linear/logistic | 3 | 1,332 |
-| Full | TLC, Olist, Retail | LightGBM, linear/logistic, MLP | 5 | 3,330 |
+| Minimum publishable | TLC, MovieLens | LightGBM, linear/logistic | 3 | 888 |
+| Primary | TLC, MovieLens, Retail | LightGBM, linear/logistic | 3 | 1,332 |
+| Full | TLC, MovieLens, Retail | LightGBM, linear/logistic, MLP | 5 | 3,330 |
 
 ## 2. Defect mechanics
 
@@ -28,8 +28,8 @@ Severity is the fraction of the stated unit affected. Each injector reports the 
 
 | ID | Defect | Injection recipe | Unit | Verification |
 |---|---|---|---|---|
-| D1 | Join fanout | Duplicate dimension rows for a fraction of keys: `zone_id` (TLC), `customer_id` (Olist), `stock_code` (Retail). Perturb a non-key attribute so the duplicate is not silently collapsed. | Dimension keys | Row count ratio matches severity within tolerance |
-| D2 | Referential loss | Delete a fraction of dimension keys before the join, so an inner join drops facts. For TLC, delete zone rows; for Olist, delete customer rows; for Retail, delete product keys. | Dimension keys | Dropped fact count matches severity |
+| D1 | Join fanout | Duplicate dimension rows for a fraction of keys: `zone_id` (TLC), `movieId` (MovieLens), `stock_code` (Retail). Perturb a non-key attribute so the duplicate is not silently collapsed. | Dimension keys | Row count ratio matches severity within tolerance |
+| D2 | Referential loss | Delete a fraction of dimension keys before the join, so an inner join drops facts. For TLC, delete zone rows; for MovieLens, delete movie rows; for Retail, delete product keys. | Dimension keys | Dropped fact count matches severity |
 | D3 | As-of join bug | Join facts to `is_latest = true` instead of the version effective at the event time. This is a real feature-store bug, not a delayed update. | Facts | Version mismatch count matches severity |
 | D4 | Watermark drop | Delay a fraction of events past the allowed lateness so the engine discards them. Only applies to the streaming replay path. | Events | Emitted event count matches severity |
 | D5 | Duplicate ingestion | Replay a fraction of source events with new ingestion timestamps. At-least-once delivery makes this realistic. | Source events | Duplicate key count matches severity |
@@ -50,13 +50,13 @@ Before the sweep, run the natural-defect audit and record the baseline rate for 
 | Dataset | Train | Validation | Test | Embargo | Label window |
 |---|---|---|---|---|---|
 | TLC | Jan–Jun 2024 | Jul–Sep 2024 | Oct–Dec 2024 | 1 day | Same trip |
-| Olist | Sep 2016–Dec 2017 | Jan–May 2018 | Jun–Aug 2018 | 7 days | Review after order |
+| MovieLens | 2019-2021 | 2022 | 2023-01-01 to 2023-10-13 | 1 day | Same rating |
 | Retail | Dec 2009–Sep 2010 | Jan–Mar 2011 | Apr–Sep 2011 | 90 days | 90-day repeat purchase |
 
 - All joins are point-in-time. No dimension version later than the fact event time.
 - Preprocessing, encoding, and imputation are fit on train only.
 - TLC excludes `trip_distance`, `RatecodeID`, all fare fields, and dropoff time; the label is duration.
-- Olist excludes actual delivery dates, review dates, and review text; the prediction point is order approval.
+- MovieLens excludes tag text, external links, and every rating at or after the current rating timestamp; the prediction point is the rating event.
 - Retail excludes every transaction after the invoice; the 90-day embargo covers the label window. Drop test invoices after 2011-09-09 or use a 60-day label for the final quarter and record the deviation.
 - A future-blind test: shuffle future rows and confirm that test metrics do not change.
 - A leakage checklist based on Kapoor & Narayanan's taxonomy is part of CI.
@@ -96,7 +96,7 @@ Silence index: `s = alpha / (alpha + beta + gamma + epsilon)`, clipped to [0, 1]
 Rules:
 
 - `tau_pred` and every PSI/KS threshold are frozen on clean validation before test annotation. No threshold is tuned on defect runs.
-- Rows are matched on the dataset's natural key: TLC pickup time and zone, Olist order id, Retail invoice line. Duplicate rows are matched by multiplicity; if a key is duplicated, pair the first occurrence and record the rule in the run metadata.
+- Rows are matched on the dataset's natural key: TLC pickup time and zone, MovieLens `(userId, movieId, timestamp)`, Retail invoice line. Duplicate rows are matched by multiplicity; if a key is duplicated, pair the first occurrence and record the rule in the run metadata.
 - Alpha is computed only on rows present in both runs. Rows added or dropped by the operator enter gamma, not alpha.
 - For classification tasks, `yhat` is the positive-class probability; the same tolerance rule applies.
 - Alpha is an oracle quantity. It measures what the defect did to decisions, not what a production monitor can see. The predictor reports an estimation error when alpha is replaced by a metadata proxy.
@@ -105,7 +105,7 @@ Rules:
 
 ## 7. Metrics
 
-- **Relative degradation:** `(M_defect - M_clean) / M_clean`. M is RMSE for TLC regression, and error rate `1 - F1` for Olist and Retail classification. Positive means worse.
+- **Relative degradation:** `(M_defect - M_clean) / M_clean`. M is RMSE for TLC regression, and error rate `1 - F1` for MovieLens and Retail classification. Positive means worse.
 - **Decision displacement (alpha):** fraction of matched rows whose prediction moves by more than `tau_pred`. Reported per condition with the matched-row count.
 - **Distribution displacement (beta):** maximum normalized PSI or KS statistic over monitored features, using the frozen thresholds defined in section 6.
 - **Coverage displacement (gamma):** relative change in retained row count.
@@ -135,7 +135,7 @@ Rules:
 - **Three models, all reported:** (a) corruption-only, using `alpha`, `beta`, `gamma`; (b) per-defect lookup table, using the mean degradation for that defect and severity; (c) corruption plus defect and dataset identity.
 - **Functional form:** a linear model and a monotone gradient-boosted model. The linear form is the headline because it is interpretable; the boosted form checks whether unmodeled interactions matter. Pre-register the linear form as primary.
 - **H5 test:** corruption-only MAE must be at least 10% lower than the lookup table on held-out defects, and identity must not lower MAE by more than 10%. If identity helps more, the law is incomplete and the paper says so.
-- **Transfer:** fit on TLC, apply to Olist and Retail without refitting. Report R2 and the transfer gap. A negative transfer result is reported, not hidden.
+- **Transfer:** fit on TLC, apply to MovieLens and Retail without refitting. Report R2 and the transfer gap. A negative transfer result is reported, not hidden.
 - **H6 test:** per condition, compute alarm recall at the frozen false-alarm rate and lead time. Correlate the silence index with recall and lead time using Spearman and ROC AUC. Test whether alpha-dominant conditions have recall at least 10 points lower than beta/gamma-dominant conditions.
 - **Bootstrap:** paired bootstrap with 10,000 resamples over conditions for every law and detectability comparison.
 - **No tuning on test conditions:** thresholds, `tau_pred`, and the functional form are fixed before the held-out evaluation. Report every model, including failures.
@@ -155,7 +155,7 @@ Rules:
 | Oracle vs proxy alpha | How much does law error grow when alpha is estimated rather than paired? |
 | Severity interpolation | Can it predict 25% from training on 1, 5, 10, 50%? |
 | Event-time features | Do watermark features matter, or do row counts suffice? |
-| Join topology | Does the star schema (TLC) interact differently from the multi-hop schema (Olist)? |
+| Join topology | Does the star schema (TLC) interact differently from the multi-hop schema (MovieLens: ratings to movies to tags/links)? |
 | Natural-defect baseline | Do results change if runs with high natural-defect rates are excluded? |
 
 ## 10. Run management
@@ -186,7 +186,7 @@ Rules:
 - **R3:** Pairwise interaction index, heatmap, and count of significant pairs.
 - **R4:** Early-warning comparison: MAE, R2, lead time, false-alarm rate per baseline.
 - **R5:** Ablations by signal family and feature type.
-- **R6:** Corruption-space summary and damage law. Per-defect ranges of alpha, beta, gamma, and s; observed versus predicted degradation; leave-one-defect-out MAE and R2 for the corruption-only, lookup-table, and identity models; TLC-to-Olist and TLC-to-Retail transfer.
+- **R6:** Corruption-space summary and damage law. Per-defect ranges of alpha, beta, gamma, and s; observed versus predicted degradation; leave-one-defect-out MAE and R2 for the corruption-only, lookup-table, and identity models; TLC-to-MovieLens and TLC-to-Retail transfer.
 - **R7:** Detectability. Alarm recall, lead time, and false-alarm rate by silence-index tercile; Spearman and ROC AUC for s against recall and lead time; alpha-dominant versus beta/gamma-dominant comparison.
 
 ## 13. Threats to validity
@@ -214,7 +214,7 @@ The first complete study is intentionally smaller than the full grid:
 	time, false-alarm rate, and exact affected-unit counts.
 - Annotation: alpha, beta, gamma, and s for every condition. The pilot fits the
 	law but does not claim transfer; transfer is tested on the minimum tier
-	(TLC to Olist) once the pilot passes.
+	(TLC to MovieLens) once the pilot passes.
 
 Do not begin the full 3,330-run grid until this pilot passes the determinism,
 leakage, and interpretability gates. A null result is publishable when the
