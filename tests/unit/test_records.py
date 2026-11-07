@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pipefault.records import RunRecord, canonical_json, config_hash
+from pipefault.records import RunRecord, canonical_json, config_hash, with_annotation
 
 
 def make_record(**overrides: object) -> RunRecord:
@@ -46,12 +46,69 @@ def test_run_record_round_trip() -> None:
         matched_rows=1000,
         tau_pred=0.7,
         thresholds_hash="b" * 64,
+        alpha_definition_version="1",
+        oracle=True,
         created_at="2026-11-07T00:00:00Z",
     )
 
     assert RunRecord.from_json(record.to_json()) == record
     assert RunRecord.from_dict(record.to_dict()) == record
     assert record.annotation_complete
+
+
+def test_with_annotation_computes_silence_index() -> None:
+    record = make_record(metrics={"test_rmse": 7.5})
+
+    annotated = with_annotation(
+        record,
+        alpha=0.2,
+        beta=0.1,
+        gamma=0.1,
+        matched_rows=1000,
+        tau_pred=0.7,
+        thresholds_hash="b" * 64,
+    )
+
+    assert annotated.annotation_complete
+    assert annotated.silence_index == pytest.approx(0.5)
+    assert annotated.oracle is True
+    assert annotated.alpha_definition_version == "1"
+    assert RunRecord.from_json(annotated.to_json()) == annotated
+
+
+def test_with_annotation_rejects_bad_pairs_and_zero_signal() -> None:
+    record = make_record()
+    zero = with_annotation(
+        record,
+        alpha=0.0,
+        beta=0.0,
+        gamma=0.0,
+        matched_rows=10,
+        tau_pred=0.5,
+        thresholds_hash="b" * 64,
+    )
+    assert zero.silence_index == 0.0
+
+    with pytest.raises(ValueError, match="matched rows"):
+        with_annotation(
+            record,
+            alpha=0.1,
+            beta=0.0,
+            gamma=0.0,
+            matched_rows=0,
+            tau_pred=0.5,
+            thresholds_hash="b" * 64,
+        )
+    with pytest.raises(ValueError, match="completed"):
+        with_annotation(
+            make_record(status="failed", reason="crashed"),
+            alpha=0.1,
+            beta=0.0,
+            gamma=0.0,
+            matched_rows=10,
+            tau_pred=0.5,
+            thresholds_hash="b" * 64,
+        )
 
 
 def test_annotation_incomplete_without_all_fields() -> None:
@@ -80,6 +137,10 @@ def test_invalid_fields_are_rejected() -> None:
         make_record(run_id=" ")
     with pytest.raises(ValueError, match="finite"):
         make_record(metrics={"rmse": math.inf})
+    with pytest.raises(ValueError, match="alpha_definition_version"):
+        make_record(alpha_definition_version=" ")
+    with pytest.raises(ValueError, match="oracle"):
+        make_record(oracle="yes")  # type: ignore[arg-type]
 
 
 def test_unknown_and_missing_fields_are_rejected() -> None:

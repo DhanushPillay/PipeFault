@@ -5,10 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from typing import Any
 
 STATUSES = frozenset({"completed", "failed", "skipped"})
+_EPSILON = 1e-12
 
 
 def canonical_json(value: Any) -> str:
@@ -47,6 +48,8 @@ class RunRecord:
     matched_rows: int | None = None
     tau_pred: float | None = None
     thresholds_hash: str | None = None
+    alpha_definition_version: str | None = None
+    oracle: bool | None = None
     created_at: str | None = None
     metadata: dict[str, Any] | None = None
 
@@ -71,6 +74,10 @@ class RunRecord:
             raise ValueError("tau_pred must be positive")
         if self.thresholds_hash is not None and not self.thresholds_hash.strip():
             raise ValueError("thresholds_hash must be non-empty when present")
+        if self.alpha_definition_version is not None and not self.alpha_definition_version.strip():
+            raise ValueError("alpha_definition_version must be non-empty when present")
+        if self.oracle is not None and not isinstance(self.oracle, bool):
+            raise ValueError("oracle must be a boolean when present")
         if self.metrics is not None:
             for key, value in self.metrics.items():
                 if not key:
@@ -100,6 +107,8 @@ class RunRecord:
                 self.matched_rows,
                 self.tau_pred,
                 self.thresholds_hash,
+                self.alpha_definition_version,
+                self.oracle,
             )
         )
 
@@ -136,6 +145,8 @@ class RunRecord:
             matched_rows=data.get("matched_rows"),
             tau_pred=data.get("tau_pred"),
             thresholds_hash=data.get("thresholds_hash"),
+            alpha_definition_version=data.get("alpha_definition_version"),
+            oracle=data.get("oracle"),
             created_at=data.get("created_at"),
             metadata=data.get("metadata"),
         )
@@ -143,3 +154,36 @@ class RunRecord:
     @classmethod
     def from_json(cls, text: str) -> RunRecord:
         return cls.from_dict(json.loads(text))
+
+
+def with_annotation(
+    record: RunRecord,
+    *,
+    alpha: float,
+    beta: float,
+    gamma: float,
+    matched_rows: int,
+    tau_pred: float,
+    thresholds_hash: str,
+    alpha_definition_version: str = "1",
+    oracle: bool = True,
+) -> RunRecord:
+    """Return a completed record with annotation fields and the silence index."""
+    if record.status != "completed":
+        raise ValueError("only completed records can be annotated")
+    if matched_rows <= 0:
+        raise ValueError("annotation requires matched rows; pairing is bad")
+    total = alpha + beta + gamma
+    silence_index = 0.0 if total <= 0 else min(1.0, alpha / (total + _EPSILON))
+    return replace(
+        record,
+        alpha=alpha,
+        beta=beta,
+        gamma=gamma,
+        silence_index=silence_index,
+        matched_rows=matched_rows,
+        tau_pred=tau_pred,
+        thresholds_hash=thresholds_hash,
+        alpha_definition_version=alpha_definition_version,
+        oracle=oracle,
+    )
