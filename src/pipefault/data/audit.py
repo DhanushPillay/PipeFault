@@ -31,6 +31,9 @@ TLC_COUNT_KEYS = (
     "passenger_count_zero",
 )
 
+MOVIELENS_VALID_RATINGS = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
+MOVIELENS_RELEASE = datetime(2023, 10, 14)
+
 
 def _iso(value: object) -> str | None:
     if value is None:
@@ -134,90 +137,112 @@ def audit_tlc(raw_dir: Path) -> dict[str, Any]:
     }
 
 
-def audit_olist(raw_dir: Path) -> dict[str, Any]:
-    base = raw_dir / "olist"
-    paths = sorted(base.glob("*.csv"))
-    if not paths:
+def audit_movielens_frame(
+    ratings: pl.DataFrame,
+    movies: pl.DataFrame,
+    tags: pl.DataFrame,
+) -> dict[str, Any]:
+    """Natural-defect metrics for the MovieLens 32M tables."""
+    known_movies = movies.select("movieId").unique()
+    event_time = (pl.col("timestamp") * 1000).cast(pl.Datetime("ms"))
+    return {
+        "rows": ratings.height,
+        "columns": ratings.width,
+        "users": int(ratings["userId"].n_unique()),
+        "movies_rated": int(ratings["movieId"].n_unique()),
+        "rating_min": ratings.select(pl.col("rating").min()).item(),
+        "rating_max": ratings.select(pl.col("rating").max()).item(),
+        "rating_null": _sum(ratings, pl.col("rating").is_null()),
+        "timestamp_min": _iso(ratings.select(event_time.min()).item()),
+        "timestamp_max": _iso(ratings.select(event_time.max()).item()),
+        "duplicate_user_movie": int(
+            ratings.select(["userId", "movieId"]).is_duplicated().sum()
+        ),
+        "invalid_rating": _sum(
+            ratings,
+            pl.col("rating").is_null() | ~pl.col("rating").is_in(MOVIELENS_VALID_RATINGS),
+        ),
+        "unknown_movie": ratings.join(
+            known_movies, on="movieId", how="anti"
+        ).height,
+        "future_timestamp": _sum(
+            ratings,
+            event_time > MOVIELENS_RELEASE,
+        ),
+        "duplicate_rows": int(ratings.is_duplicated().sum()),
+        "rating_distribution": ratings.group_by("rating")
+        .len()
+        .sort("rating")
+        .to_dicts(),
+        "movies": {
+            "rows": movies.height,
+            "duplicate_movie_ids": int(movies["movieId"].is_duplicated().sum()),
+            "missing_genres": _sum(
+                movies,
+                pl.col("genres").is_null() | (pl.col("genres") == "(no genres listed)"),
+            ),
+            "movies_without_ratings": movies.join(
+                ratings.select("movieId").unique(), on="movieId", how="anti"
+            ).height,
+        },
+        "tags": {
+            "rows": tags.height,
+            "movies_tagged": int(tags["movieId"].n_unique()),
+            "null_tags": _sum(tags, pl.col("tag").is_null()),
+            "orphan_tags": tags.join(
+                known_movies, on="movieId", how="anti"
+            ).height,
+            "duplicate_tags": int(tags.is_duplicated().sum()),
+        },
+    }
+
+
+def audit_movielens(raw_dir: Path) -> dict[str, Any]:
+    base = raw_dir / "movielens"
+    ratings_path = base / "ratings.csv"
+    movies_path = base / "movies.csv"
+    tags_path = base / "tags.csv"
+    if not all(path.exists() for path in (ratings_path, movies_path, tags_path)):
         return {
             "status": "missing",
-            "hint": "pipefault data download --dataset olist",
+            "hint": "pipefault data download --dataset movielens",
         }
 
-    tables: dict[str, pl.DataFrame] = {}
-    errors: dict[str, str] = {}
-    for path in paths:
-        try:
-            tables[path.stem] = pl.read_csv(
-                path,
-                infer_schema_length=10000,
-                try_parse_dates=True,
-            )
-        except Exception as exc:
-            errors[path.stem] = str(exc)
-
-    result: dict[str, Any] = {"status": "ok", "errors": errors, "tables": {}}
-    for name, frame in tables.items():
-        result["tables"][name] = {
-            "rows": frame.height,
-            "columns": frame.width,
-            "nulls": {key: value for key, value in _nulls(frame).items() if value},
-        }
-
-    orders = tables.get("olist_orders_dataset")
-    if orders is not None:
-        result["orders"] = {
-            "duplicate_order_ids": int(orders["order_id"].is_duplicated().sum()),
-            "status_distribution": orders.group_by("order_status")
-            .len()
-            .sort("len", descending=True)
-            .to_dicts(),
-            "purchase_min": _iso(orders["order_purchase_timestamp"].min()),
-            "purchase_max": _iso(orders["order_purchase_timestamp"].max()),
-            "null_purchase": _sum(orders, pl.col("order_purchase_timestamp").is_null()),
-            "null_delivered": _sum(
-                orders, pl.col("order_delivered_customer_date").is_null()
-            ),
-            "null_estimated": _sum(
-                orders, pl.col("order_estimated_delivery_date").is_null()
-            ),
-        }
-
-        coverage: dict[str, int] = {}
-        for table_name in (
-            "olist_order_items_dataset",
-            "olist_order_payments_dataset",
-            "olist_order_reviews_dataset",
-        ):
-            other = tables.get(table_name)
-            if other is not None and "order_id" in other.columns:
-                label = table_name.removeprefix("olist_").removesuffix("_dataset")
-                coverage[f"orders_with_{label}"] = int(
-                    orders["order_id"].is_in(other["order_id"]).sum()
-                )
-        result["coverage"] = coverage
-
-    reviews = tables.get("olist_order_reviews_dataset")
-    if reviews is not None:
-        result["reviews"] = {
-            "duplicate_review_ids": int(reviews["review_id"].is_duplicated().sum()),
-            "score_distribution": reviews.group_by("review_score")
-            .len()
-            .sort("review_score")
-            .to_dicts(),
-            "null_scores": _sum(reviews, pl.col("review_score").is_null()),
-        }
-
-    items = tables.get("olist_order_items_dataset")
-    if items is not None:
-        result["items"] = {
-            "duplicate_order_item_keys": int(
-                items.select(["order_id", "order_item_id"]).is_duplicated().sum()
-            ),
-            "null_product_ids": _sum(items, pl.col("product_id").is_null()),
-            "null_seller_ids": _sum(items, pl.col("seller_id").is_null()),
-        }
-
-    return result
+    ratings = pl.read_csv(
+        ratings_path,
+        schema_overrides={
+            "userId": pl.Int32,
+            "movieId": pl.Int32,
+            "rating": pl.Float32,
+            "timestamp": pl.Int64,
+        },
+    )
+    movies = pl.read_csv(
+        movies_path,
+        schema_overrides={
+            "movieId": pl.Int32,
+            "title": pl.String,
+            "genres": pl.String,
+        },
+    )
+    tags = pl.read_csv(
+        tags_path,
+        schema_overrides={
+            "userId": pl.Int32,
+            "movieId": pl.Int32,
+            "tag": pl.String,
+            "timestamp": pl.Int64,
+        },
+    )
+    return {
+        "status": "ok",
+        "files": {
+            "ratings": ratings_path.name,
+            "movies": movies_path.name,
+            "tags": tags_path.name,
+        },
+        **audit_movielens_frame(ratings, movies, tags),
+    }
 
 
 def audit_retail_frame(frame: pl.DataFrame) -> dict[str, Any]:
@@ -293,8 +318,8 @@ def audit_retail(raw_dir: Path) -> dict[str, Any]:
 def audit_dataset(name: str, raw_dir: Path) -> dict[str, Any]:
     if name == "tlc":
         return audit_tlc(raw_dir)
-    if name == "olist":
-        return audit_olist(raw_dir)
+    if name == "movielens":
+        return audit_movielens(raw_dir)
     if name == "retail":
         return audit_retail(raw_dir)
     raise ValueError(f"unknown dataset: {name}")

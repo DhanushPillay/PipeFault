@@ -4,7 +4,11 @@ from datetime import datetime
 
 import polars as pl
 
-from pipefault.data.audit import audit_retail_frame, audit_tlc_frame
+from pipefault.data.audit import (
+    audit_movielens_frame,
+    audit_retail_frame,
+    audit_tlc_frame,
+)
 
 
 def _tlc_frame() -> pl.DataFrame:
@@ -42,6 +46,49 @@ def test_tlc_audit_counts_natural_defects() -> None:
     assert metrics["invalid_do_zone"] == 1
     assert metrics["passenger_count_zero"] == 1
     assert metrics["null_counts"]["passenger_count"] == 1
+
+
+def test_movielens_audit_counts_natural_defects() -> None:
+    ratings = pl.DataFrame(
+        {
+            "userId": [1, 1, 2, 3, 4],
+            "movieId": [10, 10, 20, 30, 99],
+            "rating": [4.0, 4.5, 3.0, 6.0, None],
+            "timestamp": [100, 100, 200, 300, 1_700_000_000],
+        }
+    )
+    movies = pl.DataFrame(
+        {
+            "movieId": [10, 20, 30, 40],
+            "title": ["A (2000)", "B (2001)", "C (2002)", "D (2003)"],
+            "genres": ["Action", "(no genres listed)", None, "Comedy"],
+        }
+    )
+    tags = pl.DataFrame(
+        {
+            "userId": [1, 2, 2, 1],
+            "movieId": [10, 99, 10, 10],
+            "tag": ["good", "bad", None, "good"],
+            "timestamp": [100, 200, 300, 100],
+        }
+    )
+
+    metrics = audit_movielens_frame(ratings, movies, tags)
+
+    assert metrics["rows"] == 5
+    assert metrics["users"] == 4
+    assert metrics["movies_rated"] == 4
+    assert metrics["duplicate_user_movie"] == 2
+    assert metrics["invalid_rating"] == 2
+    assert metrics["unknown_movie"] == 1
+    assert metrics["future_timestamp"] == 1
+    assert metrics["duplicate_rows"] == 0
+    assert metrics["rating_null"] == 1
+    assert metrics["movies"]["missing_genres"] == 2
+    assert metrics["movies"]["movies_without_ratings"] == 1
+    assert metrics["tags"]["orphan_tags"] == 1
+    assert metrics["tags"]["null_tags"] == 1
+    assert metrics["tags"]["duplicate_tags"] == 2
 
 
 def test_retail_audit_counts_natural_defects() -> None:
