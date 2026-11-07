@@ -10,7 +10,7 @@ Dates change. Verify every deadline on the official call for papers before plann
 
 **Abstract draft:**
 
-> Production ML pipelines often fail without an error. A join fans out, a dimension arrives late, a watermark drops events, or a schema change coerces a type. The job succeeds and model quality degrades silently. Existing studies inject data-quality defects into static tables, but they do not model pipeline operators, event time, compounding defects, or the delay before labels reveal damage. We present PipeFault, a reproducible fault-injection harness for streaming ML pipelines, and a controlled study on three real public datasets: NYC taxi trips, Olist e-commerce orders, and UCI Online Retail II. We represent every defect by three measurable displacements: decision displacement (alpha), distribution displacement (beta), and coverage displacement (gamma). We test two claims. First, relative degradation is a low-dimensional function of this corruption vector, and a model fitted on one domain predicts held-out defects and datasets better than a per-defect lookup table. Second, standard monitors observe beta and gamma but not alpha, so the silence index alpha/(alpha+beta+gamma) predicts alarm recall and lead time, and alpha-dominant defects can stay invisible until labels arrive. We report effect sizes, interaction indices, transfer error, lead time, and false-alarm rates, including negative results. Code, configs, and run artifacts are released for reproduction.
+> Production ML pipelines often fail without an error. A join fans out, a dimension arrives late, a watermark drops events, or a schema change coerces a type. The job succeeds and model quality degrades silently. Existing studies inject data-quality defects into static tables, but they do not model pipeline operators, event time, compounding defects, or the delay before labels reveal damage. We present PipeFault, a reproducible fault-injection harness for streaming ML pipelines, and a controlled study on three real public datasets: NYC taxi trips, MovieLens ratings, and UCI Online Retail II. We represent every defect by three measurable displacements: decision displacement (alpha), distribution displacement (beta), and coverage displacement (gamma). We test two claims. First, relative degradation is a low-dimensional function of this corruption vector, and a model fitted on one domain predicts held-out defects and datasets better than a per-defect lookup table. Second, standard monitors observe beta and gamma but not alpha, so the silence index alpha/(alpha+beta+gamma) predicts alarm recall and lead time, and alpha-dominant defects can stay invisible until labels arrive. We report effect sizes, interaction indices, transfer error, lead time, and false-alarm rates, including negative results. Code, configs, and run artifacts are released for reproduction.
 
 ## 1. Target venues
 
@@ -92,7 +92,7 @@ Do not write a claim until the corresponding evidence exists.
 - [ ] H3 supported by MAE reduction on at least one classification dataset and lead time at a fixed false-alarm rate.
 - [ ] H4 supported by a significant detection-latency coefficient in the cost mixed-effects model.
 - [ ] **L1 (collapse):** the (alpha, beta, gamma)-only model explains a pre-registered share of variance in relative degradation on held-out seeds.
-- [ ] **L2 (transfer):** a model fitted on TLC predicts Olist and Retail, and beats both a per-defect lookup table and a model given defect identity. Report the gap; if defect identity helps, say the law is incomplete.
+- [ ] **L2 (transfer):** a model fitted on TLC predicts MovieLens and Retail, and beats both a per-defect lookup table and a model given defect identity. Report the gap; if defect identity helps, say the law is incomplete.
 - [ ] **L3 (leave-one-defect-out):** the law predicts a defect family it never saw.
 - [ ] **L4 (detectability):** the silence index is positively associated with alarm recall and lead time, with a pre-registered AUC, and alpha-dominant defects stay below the stated recall at frozen thresholds.
 - [ ] **Negative result on record:** if L1-L4 fail, the paper reports the failure with the same detail as a positive result.
@@ -114,7 +114,7 @@ that observability replaces labels. The minimum evidence package is a TLC
 single-defect grid with all eight defects, paired clean controls, three seeds,
 frozen thresholds, confidence intervals, and false-alarm and lead-time results,
 plus a fitted damage law tested leave-one-defect-out and one transfer test to
-Olist. Retail, Spark validation, and the demo strengthen the artifact but are
+MovieLens. Retail, Spark validation, and the demo strengthen the artifact but are
 not substitutes for this evidence.
 
 The law is only a contribution if it beats a per-defect lookup table. Report
@@ -140,8 +140,8 @@ reported separately from the local reference results.
 
 ## 8. Ethics and reproducibility
 
-- Public data only. No PII. Olist review text is not used at all; only the numeric score.
-- Olist is CC BY-NC-SA 4.0: non-commercial, share-alike. Do not redistribute raw data.
+- Public data only. No PII. MovieLens tag text is not used at all; only the numeric rating.
+- MovieLens is under the GroupLens research license: research use only, no commercial use, redistribution only under the same terms. Cite Harper & Konstan 2015, DOI 10.1145/2827872.
 - TLC is NYC Terms of Use. Ship download scripts, not raw files.
 - Online Retail II is CC BY 4.0. Attribution required; raw data may be redistributed, but the artifact uses scripts for consistency.
 - Code under MIT. Artifact and docs under CC BY 4.0.
