@@ -9,7 +9,7 @@ Twelve weeks plus four weeks of buffer. Each week has one primary deliverable an
 | 0 | Repo scaffold, literature matrix, environment, three datasets, natural-defect audit | `docs/litmatrix.md`, `make data`, `make audit` | At least 40 verified papers with DOIs (43 present); three downloads reproducibly hashed; natural defect rates recorded | `v0.0-scaffold` |
 | 1 | TLC ETA baseline, time split, leakage checklist | Baseline notebook and `pipefault baseline` | RMSE stable across seeds; leakage checks pass; no post-pickup features | `v0.1-baseline` |
 | 2 | Injector v1: D1-D4 with tests, configs, hashing | `pipefault/inject/`, `configs/` | Deterministic; exact affected counts; 20 tests pass; config hash recorded | `v0.2-injector` |
-| 3 | Full 8-defect taxonomy + metadata track, TLC 40-condition pilot, annotation module (alpha, gamma), MLflow, **go/no-go** | Experiment runner, pilot report, annotation v1 | Pilot complete; median degradation at least 2%; at least one silent defect evades PSI/KS; alpha and gamma recorded for every run. If go, extend to 8 defects x 5 severities x 2 models x 3 seeds = 240 TLC runs | `v0.3-pilot` |
+| 3 | Full 8-defect taxonomy + metadata track, TLC 40-condition pilot (126 runs), annotation module (alpha, gamma), MLflow, **go/no-go** | Experiment runner, pilot report, annotation v1 | Pilot complete; median degradation at least 2%; at least one silent defect evades PSI/KS; alpha and gamma recorded for every run. The pilot is 4 defects (D1, D5, D3, D6) x 5 severities x 2 models x 3 seeds = 120 treatment runs plus 6 clean controls. If go, extend to 8 defects x 5 severities x 2 models x 3 seeds = 240 TLC treatment runs | `v0.3-pilot` |
 | 4 | MovieLens and Online Retail II pipelines, cross-dataset check | Three domains, leakage report | Joins correct; label windows covered by embargoes; no opposite-signed surprise left unexplained | `v0.4-datasets` |
 | 5 | Compounding: 28 pairs, 5 triples, RERI decomposition; law fit v1 on alpha and gamma | Interaction table, heatmap, law report | CIs computed; at least 3 pairs with CI excluding zero, or documented null; corruption-only model beats the lookup table by 10% on held-out defects, or the failure is recorded | `v0.5-interactions` |
 | 6 | Observability module, 30 signals, drift and confidence panel; beta annotation | `pipefault/observe/`, beta in run records | Signals computed per batch; invariant tests; no future data; frozen thresholds recorded | `v0.6-signals` |
@@ -23,7 +23,7 @@ Twelve weeks plus four weeks of buffer. Each week has one primary deliverable an
 
 ## 2. Go/no-go at week 3
 
-Run 4 defects (D1 volume, D5 volume, D3 silent, D6 silent) x 5 severities x 2 models = 40 conditions.
+Run 4 defects (D1 volume, D5 volume, D3 silent, D6 silent) x 5 severities x 2 models x 3 seeds = 120 treatment runs, plus 6 clean controls. That is 40 conditions and 126 runs.
 
 - **Go:** median relative degradation is at least 2% for most conditions, and at least one silent defect is invisible to PSI/KS at the frozen threshold.
 - **Re-scope:** if degradation is flat, reframe as a negative-result measurement paper, drop to the minimum grid, or switch to SchemaMiner.
