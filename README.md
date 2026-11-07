@@ -2,7 +2,7 @@
 
 A reproducible fault-injection benchmark for operator-level data defects in streaming ML pipelines, on three real public datasets, plus a corruption-space law of damage and detectability.
 
-**Status:** week 1 baseline. The clean TLC ETA reference is implemented and verified on the full 2024 data. Olist is implemented but pending Kaggle credentials. The research design now includes a corruption-space law; the harness does not compute its components yet.
+**Status:** week 1 baseline. The clean TLC ETA reference is implemented and verified on the full 2024 data. The MovieLens 32M download and natural-defect audit are implemented and verified on the full dataset. The research design now includes a corruption-space law; the harness does not compute its components yet.
 
 ## The problem
 
@@ -12,7 +12,7 @@ Production ML pipelines rarely fail loudly. A join fans out, a dimension arrives
 
 1. An 8-defect taxonomy mapped to real pipeline operators.
 2. A deterministic event-time simulator and a config-driven fault injector.
-3. A measurement study of single and compounding defects on three real public datasets: NYC TLC, Olist, and UCI Online Retail II.
+3. A measurement study of single and compounding defects on three real public datasets: NYC TLC, MovieLens 32M, and UCI Online Retail II.
 4. A corruption-space law: every condition is annotated with decision, distribution, and coverage displacement, and a low-dimensional model predicts damage and whether monitors see the defect before labels arrive.
 5. A label-free degradation predictor evaluated against ATC and static thresholds, with lead time and false-alarm rate.
 6. A working demo: FastAPI endpoint, Streamlit dashboard, Docker Compose.
@@ -54,19 +54,18 @@ paper/
 
 - Environment is locked to Python 3.12 with `uv.lock`.
 - `pipefault data download`, `data audit`, and `data manifest` work.
-- TLC 2024-01 and the full 2024 year, plus the Online Retail II audit, are verified on real data.
+- TLC 2024-01 and the full 2024 year, plus the MovieLens 32M and Online Retail II audits, are verified on real data.
 - `pipefault baseline` trains and evaluates the clean TLC ETA reference with MLflow tracking.
 - CI runs lint, format, type checks, tests, and a Docker build.
 - `docs/litmatrix.md` contains 43 DOI-verified papers plus 5 arXiv-only sources.
 - The research and experiment plans specify the corruption-space law and silence index (`docs/RESEARCH.md`, `docs/PREREGISTRATION.md`, `docs/EXPERIMENTS.md`); these are design only, with no code yet.
-- Olist download is implemented but has not run because Kaggle credentials are not configured yet.
+- MovieLens 32M downloads without credentials: 32,000,204 ratings, 2,000,072 tags, 87,585 movies, 200,948 users; all four GroupLens MD5 checks pass. The natural-defect audit found 7,080 movies without genres, 3,153 movies without ratings, and zero duplicate ratings.
 
 ## Prerequisites
 
 - Python 3.12 (uv installs it from `.python-version`)
 - [uv](https://docs.astral.sh/uv/)
 - Docker Desktop for the demo image
-- A free Kaggle account for Olist: `~/.kaggle/kaggle.json` or `KAGGLE_USERNAME` / `KAGGLE_KEY`
 
 ## Quickstart
 
@@ -75,7 +74,7 @@ Windows PowerShell:
 ```powershell
 .\make.ps1 install
 uv run pipefault data download --dataset tlc --month 01
-uv run pipefault data download --dataset retail
+uv run pipefault data download --dataset movielens
 uv run pipefault data audit
 uv run pipefault baseline
 ```
@@ -85,12 +84,12 @@ Linux/macOS:
 ```bash
 make install
 uv run pipefault data download --dataset tlc --month 01
-uv run pipefault data download --dataset retail
+uv run pipefault data download --dataset movielens
 uv run pipefault data audit
 uv run pipefault baseline
 ```
 
-Download the full TLC year and Olist once credentials are configured:
+Download the full TLC year and MovieLens together:
 
 ```bash
 uv run pipefault data download
@@ -138,7 +137,7 @@ Twelve weeks plus four weeks of buffer. Week 3 contains a go/no-go pilot on TLC.
 ## Data and licenses
 
 - NYC TLC yellow taxi 2024: NYC Terms of Use. Downloaded by script, not committed. Verified full year: 41,169,720 rows, 526,866 invalid durations.
-- Olist Brazilian e-commerce: CC BY-NC-SA 4.0. Non-commercial, share-alike. Requires Kaggle credentials; not committed.
+- MovieLens 32M: GroupLens research license. Research use only, no commercial use; redistribution only under the same terms. Downloaded by script, not committed. Verified: 32,000,204 ratings, 2,000,072 tags, 87,585 movies, 200,948 users; cite Harper & Konstan 2015, DOI 10.1145/2827872.
 - UCI Online Retail II: CC BY 4.0, DOI 10.24432/C5CG6D. Downloaded by script. Verified: 1,067,371 rows, 22.8% missing CustomerID.
 
 No synthetic data is used. Defects are injected into real records as the experimental treatment; the clean run is the reference. Details and exact splits are in `docs/DATASETS.md`.
