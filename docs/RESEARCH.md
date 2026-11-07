@@ -60,7 +60,7 @@ This turns the study from "defects differ" into "here is the low-dimensional rea
 
 1. An 8-defect taxonomy mapped to pipeline operators, with injection mechanics, expected symptoms, and a corruption-space annotation (alpha, beta, gamma) per condition.
 2. A reproducible harness with a deterministic event-time simulator and a config-driven injector.
-3. A measurement study of single and compounding defects across three real domains: transport (TLC), marketplace (Olist), and retail (Online Retail II).
+3. A measurement study of single and compounding defects across three real domains: transport (TLC), media/recommendation (MovieLens 32M), and retail (Online Retail II).
 4. A damage law: a low-dimensional predictive model of relative degradation from the corruption vector, tested by transfer to held-out defects and datasets against a per-defect lookup table.
 5. A detectability law: the silence index predicts alarm recall and lead time, is evaluated against ATC and static thresholds, and is reported with MAE, lead time, and false-alarm rate.
 6. An open artifact: code, configs, run results, and a reproducibility package.
@@ -106,6 +106,7 @@ This turns the study from "defects differ" into "here is the low-dimensional rea
 - Can alpha be estimated well enough from metadata proxies to keep the predictor useful without labels?
 - Does join topology (star versus snowflake, one-to-one versus one-to-many) change the interaction magnitude?
 - Is the 90-day label window in Online Retail II stable across the 2011 test period, or does right-censoring bias the last quarter?
+- Does MovieLens popularity drift across the 2022 validation and 2023 test periods make the as-of user and movie aggregates unstable, and does that instability differ by genre or release year?
 - Are interaction effects stable across datasets, or domain-specific?
 - Does operator-aware metadata beat generic drift signals on silent defects only, or also on volume defects?
 - How much does the event-time simulator diverge from Spark Structured Streaming?
