@@ -33,7 +33,7 @@ smoke:
 	uv run python scripts/make_tlc_fixture.py --out tests/fixtures --rows-per-month 200
 	PIPEFAULT_DATA_DIR=tests/fixtures uv run pipefault data manifest
 	PIPEFAULT_DATA_DIR=tests/fixtures uv run pipefault data audit --dataset tlc
-	PIPEFAULT_DATA_DIR=tests/fixtures uv run pipefault baseline --train-size 200 --val-size 100 --test-size 100 --rounds 50 --no-mlflow
+	PIPEFAULT_DATA_DIR=tests/fixtures uv run python scripts/smoke_experiment.py --rounds 50
 
 reproduce-check:
 	uv run python scripts/make_tlc_fixture.py --out tests/fixtures --rows-per-month 200

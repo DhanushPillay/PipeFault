@@ -56,7 +56,7 @@ def _zone_median(train: pl.DataFrame, frame: pl.DataFrame, fallback: float) -> n
     return aligned.to_numpy().ravel().astype(np.float64)
 
 
-def _train_lightgbm(
+def train_lightgbm(
     X_train: Any,
     y_train: np.ndarray,
     X_val: Any,
@@ -205,7 +205,7 @@ def run_tlc_baseline(
     global_median = float(median_value)
 
     train_started = time.perf_counter()
-    model = _train_lightgbm(
+    model = train_lightgbm(
         X_train,
         y_train,
         X_val,
