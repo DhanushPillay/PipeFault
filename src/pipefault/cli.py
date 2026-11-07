@@ -13,10 +13,9 @@ from pipefault.config import get_settings
 from pipefault.data.audit import audit_datasets
 from pipefault.data.download import (
     TLC_MONTHS,
-    download_olist,
+    download_movielens,
     download_retail,
     download_tlc,
-    olist_credentials_present,
     raw_files,
 )
 from pipefault.data.manifest import verify_manifest, write_manifest
@@ -32,7 +31,7 @@ console = Console()
 class Dataset(StrEnum):
     all = "all"
     tlc = "tlc"
-    olist = "olist"
+    movielens = "movielens"
     retail = "retail"
 
 
@@ -56,12 +55,6 @@ def download(
 ) -> None:
     """Download raw data and write the SHA-256 manifest."""
     settings = get_settings()
-    if dataset in (Dataset.all, Dataset.olist) and not olist_credentials_present():
-        console.print(
-            "[red]Kaggle credentials not found.[/red] Create "
-            "[bold]~/.kaggle/kaggle.json[/bold] or set KAGGLE_USERNAME and KAGGLE_KEY."
-        )
-        raise typer.Exit(code=1)
 
     files: list[Path] = []
     try:
@@ -75,8 +68,8 @@ def download(
             )
         if dataset in (Dataset.all, Dataset.retail):
             files.extend(download_retail(settings.raw_dir, force=force))
-        if dataset in (Dataset.all, Dataset.olist):
-            files.extend(download_olist(settings.raw_dir, force=force))
+        if dataset in (Dataset.all, Dataset.movielens):
+            files.extend(download_movielens(settings.raw_dir, force=force))
     except RuntimeError as exc:
         console.print(f"[red]Download failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc
@@ -95,7 +88,7 @@ def audit(
 ) -> None:
     """Measure natural defects in the downloaded data."""
     settings = get_settings()
-    names = ["tlc", "olist", "retail"] if dataset is Dataset.all else [dataset.value]
+    names = ["tlc", "movielens", "retail"] if dataset is Dataset.all else [dataset.value]
     results = audit_datasets(names, settings)
     _print_audit(results)
     console.print(f"JSON: [bold]{settings.audit_dir}[/bold]")
@@ -164,10 +157,6 @@ def baseline(
 
 
 def _rows_for(name: str, result: dict[str, Any]) -> object:
-    if name == "olist":
-        tables = result.get("tables", {})
-        orders = tables.get("olist_orders_dataset", {})
-        return orders.get("rows", "-")
     return result.get("rows", "-")
 
 
@@ -179,10 +168,14 @@ def _notes_for(name: str, result: dict[str, Any]) -> str:
             f"duplicates={result.get('duplicate_rows', '-')}, "
             f"invalid_duration={result.get('invalid_duration', '-')}"
         )
-    if name == "olist":
-        reviews = result.get("reviews", {})
-        coverage = result.get("coverage", {})
-        return f"reviews={reviews.get('score_distribution', '-')}, coverage={coverage}"
+    if name == "movielens":
+        movies = result.get("movies", {})
+        return (
+            f"duplicates={result.get('duplicate_user_movie', '-')}, "
+            f"invalid_rating={result.get('invalid_rating', '-')}, "
+            f"unknown_movie={result.get('unknown_movie', '-')}, "
+            f"movies_without_ratings={movies.get('movies_without_ratings', '-')}"
+        )
     if name == "retail":
         return (
             f"missing_customer_id={result.get('missing_customer_id', '-')}, "

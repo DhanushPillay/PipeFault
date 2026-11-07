@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from pipefault.cli import app
+from pipefault.cli import Dataset, app
+
+
+def test_movielens_dataset_is_available() -> None:
+    assert Dataset.movielens.value == "movielens"
 
 
 def test_root_help() -> None:
